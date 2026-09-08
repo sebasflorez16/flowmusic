@@ -1,13 +1,16 @@
 """Rutas de la API REST v1.
 
-Agrupa los URLs de las aplicaciones. Los routers de DRF de cada app se incluyen
-aquí a medida que se implementan (Fase 2 en adelante).
+Agrupa los URLs de las aplicaciones. Se añaden aquí los routers de cada app a
+medida que se implementan.
 """
 
 from django.urls import include, path
 
 urlpatterns = [
-    # Placeholder: los endpoints reales se añaden por app (tables, music, etc.)
-    # path("auth/", include("apps.users.urls")),
+    path("", include("apps.users.urls")),
     # path("tables/", include("apps.tenants.tables.urls")),
+    # path("music/", include("apps.tenants.music.urls")),
+    # path("marketing/", include("apps.tenants.marketing.urls")),
+    # path("analytics/", include("apps.tenants.analytics.urls")),
+    # path("payments/", include("apps.payments.urls")),
 ]

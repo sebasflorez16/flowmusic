@@ -11,6 +11,7 @@ Arquitectura multi-tenant:
     esquema propio de cada tenant.
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -112,6 +113,11 @@ TENANT_DOMAIN_MODEL = "core.Domain"
 # Enruta las migraciones al esquema correcto (público vs. por tenant).
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
+# Si un hostname no coincide con ningún dominio de tenant, se sirve el esquema
+# público (donde viven auth, superadmin y la landing). En desarrollo, `localhost`
+# cae aquí; en producción, el dominio principal (musicflow.com) también.
+SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
+
 # ---------------------------------------------------------------------------
 # Middleware
 # ---------------------------------------------------------------------------
@@ -205,8 +211,8 @@ REST_FRAMEWORK = {
 
 # Configuración de tokens JWT (acceso de corta duración + refresh).
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": env.int("JWT_ACCESS_MINUTES", default=15) * 60,
-    "REFRESH_TOKEN_LIFETIME": env.int("JWT_REFRESH_DAYS", default=30) * 86400,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env.int("JWT_ACCESS_MINUTES", default=15)),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=env.int("JWT_REFRESH_DAYS", default=30)),
 }
 
 # ---------------------------------------------------------------------------

@@ -70,7 +70,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
-    const message = (body as { detail?: string }).detail ?? response.statusText
+    const message = extractErrorMessage(body) ?? response.statusText
     throw new ApiError(message, response.status)
   }
 
@@ -79,6 +79,30 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     return undefined as T
   }
   return (await response.json()) as T
+}
+
+/**
+ * Extrae un mensaje legible de un error de DRF.
+ *
+ * DRF devuelve errores en varios formatos:
+ * - `{ detail: "..." }` (errores genéricos de APIView)
+ * - `{ non_field_errors: ["..."] }` (errores de serializer)
+ * - `{ campo: ["..."] }` (errores de validación por campo)
+ */
+function extractErrorMessage(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null) return null
+  const data = body as Record<string, unknown>
+
+  if (typeof data.detail === 'string') return data.detail
+  if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+    return String(data.non_field_errors[0])
+  }
+  for (const value of Object.values(data)) {
+    if (Array.isArray(value) && value.length > 0) {
+      return `${String(value[0])}`
+    }
+  }
+  return null
 }
 
 /**
