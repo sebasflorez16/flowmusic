@@ -63,6 +63,19 @@ export function MarketingPage() {
     }
   }
 
+  /** Activa/desactiva un mensaje (para elegir cuáles rotan en pantalla). */
+  const handleToggleMessage = async (message: DisplayMessage) => {
+    try {
+      await api<DisplayMessage>(`/marketing/messages/${message.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: !message.is_active }),
+      })
+      await fetchData()
+    } catch {
+      // El error ya se maneja en el cliente api.
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
@@ -111,7 +124,7 @@ export function MarketingPage() {
             <CardTitle className="text-base">Mensajes activos</CardTitle>
           </CardHeader>
           <CardContent>
-            <MessageManager messages={messages} onCreate={() => {}} />
+            <MessageManager messages={messages} onCreate={() => {}} onToggle={handleToggleMessage} />
           </CardContent>
         </Card>
       </div>

@@ -20,6 +20,16 @@ class MessageListCreateView(generics.ListCreateAPIView):
         return DisplayMessage.objects.all().order_by("-created_at")
 
 
+class MessageDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Consulta, edita (activar/desactivar) o elimina un mensaje."""
+
+    serializer_class = DisplayMessageSerializer
+
+    def get_queryset(self):
+        """Devuelve los mensajes del tenant."""
+        return DisplayMessage.objects.all()
+
+
 def active_messages():
     """Devuelve los mensajes activos y dentro de su vigencia.
 

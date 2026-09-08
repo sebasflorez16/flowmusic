@@ -1,6 +1,5 @@
 import { MessageSquare } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { DisplayMessage } from '@/lib/types'
 
@@ -9,6 +8,8 @@ interface MessageManagerProps {
   messages: DisplayMessage[]
   /** Callback para crear un mensaje nuevo. */
   onCreate: () => void
+  /** Callback para activar/desactivar un mensaje. */
+  onToggle: (message: DisplayMessage) => void
 }
 
 /** Etiqueta legible para cada tipo de mensaje. */
@@ -23,9 +24,10 @@ const TYPE_LABEL: Record<DisplayMessage['message_type'], string> = {
 /**
  * Lista de mensajes que aparecen como overlay en la TV.
  *
- * Muestra texto, tipo, vigencia y estado de cada mensaje.
+ * Muestra texto, tipo y estado de cada mensaje, con un interruptor para
+ * activar/desactivar cuáles rotan en pantalla.
  */
-export function MessageManager({ messages, onCreate }: MessageManagerProps) {
+export function MessageManager({ messages, onCreate, onToggle }: MessageManagerProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -48,9 +50,17 @@ export function MessageManager({ messages, onCreate }: MessageManagerProps) {
                 <p className="truncate text-sm font-medium">{message.text}</p>
                 <p className="text-xs text-muted-foreground">{TYPE_LABEL[message.message_type]}</p>
               </div>
-              <Badge variant={message.is_active ? 'success' : 'muted'}>
+              <button
+                type="button"
+                onClick={() => onToggle(message)}
+                className="flex items-center gap-2 rounded-full border border-border px-2 py-1 text-xs transition-colors"
+                aria-label={message.is_active ? 'Desactivar mensaje' : 'Activar mensaje'}
+              >
+                <span
+                  className={`h-3 w-3 rounded-full ${message.is_active ? 'bg-success' : 'bg-muted-foreground'}`}
+                />
                 {message.is_active ? 'Activo' : 'Inactivo'}
-              </Badge>
+              </button>
             </li>
           ))}
         </ul>

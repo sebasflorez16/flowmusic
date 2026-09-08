@@ -27,6 +27,7 @@ export function TableView() {
   const [searching, setSearching] = useState(false)
   const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null)
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set())
+  const [messageIndex, setMessageIndex] = useState(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /** Carga el snapshot de la mesa desde el backend. */
@@ -54,6 +55,15 @@ export function TableView() {
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, hash])
+
+  // Rotación de mensajes de marketing (uno a la vez, cada 6 segundos).
+  const messages = snapshot?.messages ?? []
+  useEffect(() => {
+    if (messages.length <= 1) return
+    setMessageIndex(0)
+    const id = setInterval(() => setMessageIndex((prev) => (prev + 1) % messages.length), 6000)
+    return () => clearInterval(id)
+  }, [messages.length])
 
   // Búsqueda en YouTube (Innertube) con debounce de 400ms.
   useEffect(() => {
@@ -133,17 +143,15 @@ export function TableView() {
         </p>
       </header>
 
-      {/* Mensajes / promociones */}
+      {/* Mensaje de marketing rotativo (uno a la vez) */}
       {snapshot.messages.length > 0 && (
         <section className="glass" style={{ padding: 16, borderColor: 'var(--purple)' }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--pink)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
             Promociones
           </h2>
-          {snapshot.messages.map((m) => (
-            <p key={m.id} style={{ fontSize: 14, marginBottom: 6, lineHeight: 1.4 }}>
-              {m.text}
-            </p>
-          ))}
+          <p key={snapshot.messages[messageIndex]?.id} style={{ fontSize: 15, lineHeight: 1.4, fontWeight: 600 }}>
+            {snapshot.messages[messageIndex]?.text}
+          </p>
         </section>
       )}
 
