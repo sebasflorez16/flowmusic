@@ -61,7 +61,7 @@ export function TVScreen() {
     const player = playerRef.current
     if (!player) return
     if (muted) {
-      player.unmute()
+      player.unMute()
       setMuted(false)
     } else {
       player.mute()
