@@ -1,0 +1,40 @@
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.sqlite3
+/backend/staticfiles/
+/backend/media/
+celerybeat-schedule
+
+# --- Node / Vite ---
+node_modules/
+dist/
+build/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Editor / OS ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Tests / coverage ---
+.coverage
+htmlcov/
+.pytest_cache/
+
+# --- Logs ---
+*.log
+logs/
