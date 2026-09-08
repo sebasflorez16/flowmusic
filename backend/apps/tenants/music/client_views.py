@@ -232,20 +232,23 @@ class ClientPlayingView(APIView):
                 return Response({"detail": "Ítem no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
             item.status = QueueItem.Status.PLAYING
+            item.position = 1  # la que suena es siempre la primera
+            item.estimated_wait_seconds = 0
             item.started_at = timezone.now()
-            item.save(update_fields=["status", "started_at"])
+            item.save(update_fields=["status", "position", "estimated_wait_seconds", "started_at"])
 
             item.playlist_item.play_count += 1
             item.playlist_item.save(update_fields=["play_count"])
 
-            # Recalcula posiciones y tiempos de espera de las aprobadas restantes.
+            # Recalcula posiciones (2, 3, 4...) y tiempos de espera de las
+            # aprobadas restantes. La posición 1 es la canción que suena.
             remaining = list(
                 QueueItem.objects.filter(status=QueueItem.Status.APPROVED).order_by("position")
             )
-            for idx, q in enumerate(remaining, start=1):
+            for idx, q in enumerate(remaining, start=2):
                 q.position = idx
                 q.estimated_wait_seconds = sum(
-                    q2.playlist_item.duration_seconds or 180 for q2 in remaining[:idx]
+                    q2.playlist_item.duration_seconds or 180 for q2 in remaining[: idx - 1]
                 )
                 q.save(update_fields=["position", "estimated_wait_seconds"])
 
