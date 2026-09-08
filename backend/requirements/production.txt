@@ -1,0 +1,9 @@
+# Dependencias exclusivas del entorno de producción.
+-r base.txt
+
+# Servidor WSGI/ASGI de producción
+gunicorn>=22.0,<23.0
+uvicorn>=0.30,<1.0
+
+# Monitoreo de errores
+sentry-sdk[django]>=2.10

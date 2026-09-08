@@ -1,0 +1,21 @@
+# Dockerfile de desarrollo: instala dependencias y expone el servidor de
+# desarrollo. Usado por docker-compose.yml.
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Instala dependencias del sistema necesarias para psycopg (compilación).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
+
+# Copia y resuelve las dependencias de desarrollo.
+COPY requirements ./requirements
+RUN pip install --no-cache-dir -r requirements/development.txt
+
+# Copia el código del proyecto.
+COPY . .
+
+EXPOSE 8000

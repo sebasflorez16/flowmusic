@@ -1,0 +1,34 @@
+# Dependencias compartidas entre todos los entornos (desarrollo y producción).
+# Pin principal: Django 5.x LTS-compatible + django-tenants (fork mantenido de
+# django-tenant-schemas, que está obsoleto y no soporta Django 5).
+
+Django>=5.1,<5.2
+django-tenants>=3.7,<4.0
+djangorestframework>=3.15,<4.0
+djangorestframework-simplejwt>=5.3,<6.0
+django-cors-headers>=4.4,<5.0
+# El extra [socialaccount] aporta requests, requests-oauthlib, PyJWT y
+# cryptography, requeridos por el provider de Google (OAuth).
+django-allauth[socialaccount]>=0.63,<0.64
+
+# Tiempo real (WebSockets) y tareas asíncronas
+channels>=4.1,<5.0
+daphne>=4.1,<5.0
+channels-redis>=4.2,<5.0
+celery>=5.4,<6.0
+redis>=5.0,<6.0
+
+# daphne -> autobahn -> cbor2. La serie 6.x de cbor2 no publica wheels para
+# macOS x86_64 y exige compilar con Rust; se fija <6.0 para instalación limpia.
+cbor2>=5.2,<6.0
+
+# Base de datos PostgreSQL (psycopg 3, soportado nativamente por Django 5)
+psycopg[binary]>=3.2,<4.0
+
+# Configuración por variables de entorno y almacenamiento en S3/R2
+django-environ>=0.11,<1.0
+boto3>=1.34
+django-storages[s3]>=1.14,<2.0
+
+# Generación de códigos QR en el backend (imágenes subidas a S3)
+qrcode[pil]>=7.4

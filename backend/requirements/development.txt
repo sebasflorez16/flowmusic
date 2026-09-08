@@ -1,0 +1,7 @@
+# Dependencias exclusivas del entorno de desarrollo.
+-r base.txt
+
+# Servidor de desarrollo con soporte de auto-reload
+django-extensions>=3.2
+ipython>=8.0
+watchfiles>=0.21

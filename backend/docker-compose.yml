@@ -1,0 +1,45 @@
+# Entorno de desarrollo local: PostgreSQL + Redis + backend Django.
+#
+# Uso:
+#   docker compose up -d db redis      # levanta solo los servicios de apoyo
+#   docker compose up backend          # levanta también el backend
+#
+# El backend se puede correr también en local con:
+#   python manage.py runserver
+#   daphne -p 8000 config.asgi:application   # para WebSockets
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: musicflow
+      POSTGRES_USER: musicflow
+      POSTGRES_PASSWORD: musicflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://musicflow:musicflow@db:5432/musicflow
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:
