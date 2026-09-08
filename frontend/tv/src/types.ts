@@ -7,6 +7,7 @@ export interface QueueItem {
     title: string
     artist: string
     thumbnail_url: string
+    duration_seconds: number
   }
   table_number: number | null
   status: string
@@ -26,29 +27,3 @@ export interface TVSnapshot {
   messages: DisplayMessage[]
 }
 
-/** Declaración mínima del API de YouTube IFrame. */
-export interface YTPlayer {
-  loadVideoById: (videoId: string) => void
-  unMute: () => void
-  mute: () => void
-  destroy: () => void
-}
-
-export interface YTEvent {
-  target: YTPlayer
-  data: number
-}
-
-export interface YouTubeAPI {
-  Player: new (
-    element: HTMLElement,
-    options: {
-      videoId?: string
-      playerVars?: Record<string, number | string>
-      events?: {
-        onStateChange?: (event: YTEvent) => void
-        onReady?: () => void
-      }
-    },
-  ) => YTPlayer
-}
