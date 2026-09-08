@@ -11,20 +11,24 @@ const DEFAULT_DURATION = 180
 /**
  * Vista TV: reproduce la cola de YouTube en pantalla completa.
  *
- * Avanza a la siguiente canción usando un temporizador con la duración de cada
- * video (refuerza con la detección del fin real vía postMessage). Los mensajes
- * de marketing rotan uno a uno.
+ * Usa un <iframe> normal de YouTube (arranca silenciado para permitir el
+ * autoplay). El estado de sonido se recuerda y se restaura en cada canción
+ * mediante comandos postMessage al reproductor, de modo que el volumen no se
+ * reinicie al avanzar. Los mensajes de marketing rotan uno a uno.
  */
 export function TVScreen() {
   const [snapshot, setSnapshot] = useState<TVSnapshot | null>(null)
   const [currentId, setCurrentId] = useState<number | null>(null)
   const [messageIndex, setMessageIndex] = useState(0)
+  const [muted, setMuted] = useState(true)
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentIdRef = useRef<number | null>(null)
   const queueRef = useRef<QueueItem[]>([])
   const advancingRef = useRef(false)
   const autodjRef = useRef(false)
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const mutedRef = useRef(true)
 
   // Extrae el slug de la URL: /tv/<slug>
   const slug = window.location.pathname.split('/')[2] ?? ''
@@ -32,6 +36,39 @@ export function TVScreen() {
   useEffect(() => {
     queueRef.current = snapshot?.queue ?? []
   }, [snapshot])
+
+  useEffect(() => {
+    mutedRef.current = muted
+  }, [muted])
+
+  /** Envía un comando al reproductor de YouTube vía postMessage. */
+  const sendCommand = (func: string, args: unknown[] = []) => {
+    const iframe = iframeRef.current
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func, args }),
+        '*',
+      )
+    }
+  }
+
+  /** Activa o silencia el sonido (persiste entre canciones). */
+  const toggleMute = () => {
+    if (muted) {
+      sendCommand('unMute')
+      setMuted(false)
+    } else {
+      sendCommand('mute')
+      setMuted(true)
+    }
+  }
+
+  /** Al cargar un video nuevo, restaura el estado de sonido que había. */
+  const handleIframeLoad = () => {
+    if (!mutedRef.current) {
+      setTimeout(() => sendCommand('unMute'), 600)
+    }
+  }
 
   /** Programa el avance automático según la duración de la canción actual. */
   const scheduleAdvance = (item: QueueItem) => {
@@ -166,10 +203,12 @@ export function TVScreen() {
         {embedUrl ? (
           <iframe
             key={videoId}
+            ref={iframeRef}
             src={embedUrl}
             title="YouTube player"
             allow="autoplay; encrypted-media; fullscreen"
             allowFullScreen
+            onLoad={handleIframeLoad}
           />
         ) : (
           <div className="empty-tv">Cola vacía · esperando canciones…</div>
@@ -200,6 +239,9 @@ export function TVScreen() {
           ) : (
             <div className="label">Cola vacía · esperando canciones…</div>
           )}
+          <button className="mute-btn" onClick={toggleMute}>
+            {muted ? '🔇 Activar sonido' : '🔊 Sonido activado'}
+          </button>
         </div>
 
         {upcoming.length > 0 && (
