@@ -1,0 +1,96 @@
+import { useEffect, useState } from 'react'
+
+import { Plus } from 'lucide-react'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { api } from '@/lib/api'
+import type { PlaylistItem } from '@/lib/types'
+
+/**
+ * Página de gestión de la playlist (catálogo de canciones aprobadas).
+ *
+ * Permite buscar, ver y agregar canciones desde YouTube (por URL o ID). La
+ * integración real con YouTube se completa en la Fase 2.
+ */
+export function PlaylistPage() {
+  const [items, setItems] = useState<PlaylistItem[]>([])
+  const [query, setQuery] = useState('')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+
+  useEffect(() => {
+    void api<PlaylistItem[]>('/music/playlist/')
+      .then(setItems)
+      .catch(() => setItems([]))
+  }, [])
+
+  const filtered = items.filter(
+    (item) =>
+      item.title.toLowerCase().includes(query.toLowerCase()) ||
+      item.artist.toLowerCase().includes(query.toLowerCase()),
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Agregar canción desde YouTube */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Agregar canción desde YouTube</CardTitle>
+        </CardHeader>
+        <CardContent className="flex gap-2">
+          <Input
+            value={youtubeUrl}
+            onChange={(e) => setYoutubeUrl(e.target.value)}
+            placeholder="Pega una URL o ID de YouTube"
+          />
+          <Button>
+            <Plus className="h-4 w-4" /> Agregar
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Catálogo */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Catálogo de canciones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por título o artista…"
+            className="mb-4"
+          />
+
+          {filtered.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No hay canciones en el catálogo
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {filtered.map((item) => (
+                <li key={item.id} className="glass flex items-center gap-3 rounded-lg p-3">
+                  <img
+                    src={item.thumbnail_url}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{item.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{item.artist}</p>
+                  </div>
+                  <Badge variant="muted">{item.duration_seconds}s</Badge>
+                  <Badge variant={item.autodj_approved ? 'accent' : 'muted'}>
+                    {item.autodj_approved ? 'AutoDJ' : 'Manual'}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design system de MusicFlow — Liquid Glass + Neumorfismo.
+ *
+ * Se definen los tokens como variables HSL (formato shadcn/ui) y luego se
+ * exponen utilidades propias (`.glass`, `.glass-card`, `.neumorphic`) para
+ * construir la interfaz del dashboard del dueño.
+ */
+
+/* ---------- Tokens (modo oscuro por defecto) ---------- */
+:root {
+  --background: 240 12% 4%;
+  --foreground: 0 0% 98%;
+
+  --card: 240 10% 8%;
+  --card-foreground: 0 0% 98%;
+
+  --primary: 262 83% 62%; /* púrpura neón */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 330 81% 62%; /* rosa vibrante */
+  --secondary-foreground: 0 0% 100%;
+
+  --accent: 187 100% 46%; /* ciber turquesa */
+  --accent-foreground: 0 0% 100%;
+
+  --muted: 240 6% 14%;
+  --muted-foreground: 240 5% 66%;
+
+  --border: 240 8% 18%;
+  --input: 240 8% 18%;
+  --ring: 262 83% 62%;
+
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 142 71% 48%;
+  --success-foreground: 0 0% 100%;
+
+  --radius: 0.75rem;
+}
+
+/* Modo claro (opcional, activado con la clase `.light` en <html>). */
+.light {
+  --background: 0 0% 96%;
+  --foreground: 222 30% 14%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 30% 14%;
+
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 330 81% 56%;
+  --secondary-foreground: 0 0% 100%;
+
+  --accent: 187 90% 38%;
+  --accent-foreground: 0 0% 100%;
+
+  --muted: 240 10% 92%;
+  --muted-foreground: 240 6% 45%;
+
+  --border: 240 10% 86%;
+  --input: 240 10% 86%;
+  --ring: 262 83% 58%;
+
+  --destructive: 0 72% 50%;
+  --success: 142 65% 40%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    /* Fondo con degradado sutil y partículas (ver utilidades abajo). */
+    background-image:
+      radial-gradient(circle at 15% 10%, hsla(var(--primary) / 0.14), transparent 45%),
+      radial-gradient(circle at 85% 90%, hsla(var(--secondary) / 0.12), transparent 45%),
+      radial-gradient(circle at 70% 20%, hsla(var(--accent) / 0.1), transparent 40%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* Scrollbar fina y discreta acorde al tema. */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsla(var(--muted-foreground) / 0.35);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsla(var(--muted-foreground) / 0.55);
+  }
+}
+
+@layer components {
+  /*
+   * Tarjeta "Liquid Glass": fondo translúcido con desenfoque, borde tenue y
+   * brillo superior que simula cristal líquido.
+   */
+  .glass {
+    position: relative;
+    background: hsla(var(--card) / 0.55);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid hsla(var(--border) / 0.6);
+    border-radius: var(--radius);
+  }
+
+  .glass-card {
+    @apply glass shadow-glass;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.45);
+  }
+
+  /* Brillo superior del cristal (degradado sutil). */
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      hsla(0 0% 100% / 0.08) 0%,
+      transparent 45%,
+      hsla(var(--primary) / 0.06) 100%
+    );
+    pointer-events: none;
+  }
+
+  /* Elemento neumórfico suave (elevado con sombras internas/externas). */
+  .neumorphic {
+    background: hsla(var(--card) / 0.7);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
+      8px 8px 16px rgba(0, 0, 0, 0.45),
+      -6px -6px 14px rgba(255, 255, 255, 0.04);
+    border-radius: var(--radius);
+  }
+
+  .neumorphic-inset {
+    background: hsla(var(--background) / 0.4);
+    box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.5),
+      inset -4px -4px 8px rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius);
+  }
+}
+
+@layer utilities {
+  /* Texto con degradado púrpura -> rosa. */
+  .text-gradient {
+    background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--secondary)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Glow púrpura para elementos interactivos al hacer hover. */
+  .hover-glow {
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 24px 0 hsla(var(--primary) / 0.4);
+    transform: translateY(-1px);
+  }
+}
