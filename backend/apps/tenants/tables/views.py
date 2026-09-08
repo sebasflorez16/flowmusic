@@ -17,10 +17,14 @@ from apps.tenants.tables.qr import save_branded_qr
 from apps.tenants.tables.serializers import TableSerializer
 
 
-def _table_url(qr_hash: str) -> str:
-    """Construye la URL pública que escanea el cliente de esa mesa."""
+def _table_url(qr_hash: str, slug: str) -> str:
+    """Construye la URL pública que escanea el cliente de esa mesa.
+
+    Incluye el slug del bar para que la vista del cliente resuelva el tenant sin
+    necesidad de login.
+    """
     base = settings.CLIENT_BASE_URL
-    return f"{base}/t/{qr_hash}"
+    return f"{base}/bar/{slug}/t/{qr_hash}"
 
 
 class TableListCreateView(generics.ListCreateAPIView):
@@ -49,7 +53,7 @@ class TableListCreateView(generics.ListCreateAPIView):
         table = serializer.save()
 
         # Genera el QR con el branding de MusicFlow (publicidad impresa).
-        url = _table_url(table.qr_hash)
+        url = _table_url(table.qr_hash, tenant.slug)
         relative_path = save_branded_qr(
             value=url,
             bar_name=tenant.name,
@@ -83,7 +87,7 @@ class TableBulkCreateView(APIView):
                 table = Table.objects.create(number=number)
             except IntegrityError:
                 continue  # mesa con ese número ya existía
-            url = _table_url(table.qr_hash)
+            url = _table_url(table.qr_hash, tenant.slug)
             relative_path = save_branded_qr(
                 value=url,
                 bar_name=tenant.name,

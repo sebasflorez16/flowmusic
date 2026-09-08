@@ -3,6 +3,11 @@
   "name": "MusicFlow — Agregar canciones",
   "version": "0.1.0",
   "description": "Agrega videos de YouTube a la playlist de tu bar con un clic.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["https://www.youtube.com/*"],
   "action": {

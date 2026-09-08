@@ -8,12 +8,18 @@ oEmbed de YouTube para autocompletarlo.
 import re
 
 import requests
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from apps.tenants.music.models import PlaylistItem
-from apps.tenants.music.serializers import PlaylistItemSerializer
+from apps.tenants.music.models import PlaylistItem, QueueItem, SongRequest
+from apps.tenants.music.serializers import (
+    PlaylistItemSerializer,
+    QueueItemSerializer,
+    SongRequestSerializer,
+)
 
 # Detecta el ID de YouTube en distintos formatos de URL.
 YOUTUBE_ID_RE = re.compile(
@@ -105,3 +111,120 @@ class PlaylistItemDetailView(generics.RetrieveDestroyAPIView):
     def get_queryset(self):
         """Devuelve las canciones del tenant activo."""
         return PlaylistItem.objects.all()
+
+
+# ---------------------------------------------------------------------------
+# Cola de reproducción y peticiones (dueño)
+# ---------------------------------------------------------------------------
+
+# Estados de la cola que se consideran "activos" (esperando o reproduciendo).
+ACTIVE_STATUSES = ("approved", "playing")
+
+# Duración por defecto (segundos) usada para estimar cuando la duración real no
+# está disponible (el oEmbed de YouTube no devuelve la duración).
+DEFAULT_DURATION = 180
+
+
+def _duration(item: PlaylistItem) -> int:
+    """Devuelve la duración de una canción, o un valor por defecto si es 0."""
+    return item.duration_seconds or DEFAULT_DURATION
+
+
+def compute_estimated_wait(before: list[QueueItem]) -> int:
+    """Calcula el tiempo estimado de espera sumando lo que va delante."""
+    return sum(_duration(item.playlist_item) for item in before)
+
+
+class RequestListView(generics.ListAPIView):
+    """Lista las peticiones del tenant (filtrable por estado)."""
+
+    serializer_class = SongRequestSerializer
+
+    def get_queryset(self):
+        """Devuelve peticiones ordenadas por antigüedad, filtrables por estado."""
+        qs = SongRequest.objects.all().order_by("-requested_at")
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+
+class RequestApproveView(APIView):
+    """Aprueba una petición: crea el ítem en la cola con tiempo estimado."""
+
+    def post(self, request, pk):
+        """Crea un ``QueueItem`` a partir de la petición aprobada."""
+        try:
+            song_request = SongRequest.objects.get(pk=pk)
+        except SongRequest.DoesNotExist:
+            return Response({"detail": "Petición no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        if song_request.status != SongRequest.Status.PENDING:
+            return Response(
+                {"detail": "La petición ya fue procesada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        active = QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position")
+        queue_item = QueueItem.objects.create(
+            playlist_item=song_request.playlist_item,
+            table=song_request.table,
+            requested_by=f"Mesa {song_request.table.number}",
+            status=QueueItem.Status.APPROVED,
+            position=active.count() + 1,
+            estimated_wait_seconds=compute_estimated_wait(list(active)),
+        )
+
+        song_request.status = SongRequest.Status.APPROVED
+        song_request.approved_at = timezone.now()
+        song_request.save(update_fields=["status", "approved_at"])
+
+        return Response(QueueItemSerializer(queue_item).data, status=status.HTTP_201_CREATED)
+
+
+class RequestRejectView(APIView):
+    """Rechaza una petición pendiente."""
+
+    def post(self, request, pk):
+        """Marca la petición como rechazada."""
+        try:
+            song_request = SongRequest.objects.get(pk=pk)
+        except SongRequest.DoesNotExist:
+            return Response({"detail": "Petición no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        song_request.status = SongRequest.Status.REJECTED
+        song_request.save(update_fields=["status"])
+        return Response(SongRequestSerializer(song_request).data)
+
+
+class QueueListView(generics.ListAPIView):
+    """Lista los ítems activos de la cola (aprobados y en reproducción)."""
+
+    serializer_class = QueueItemSerializer
+
+    def get_queryset(self):
+        """Devuelve los ítems activos ordenados por posición."""
+        return QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position")
+
+
+class QueueSkipView(APIView):
+    """Salta un ítem de la cola (lo marca como saltado)."""
+
+    def post(self, request, pk):
+        """Marca el ítem como saltado y reordena los restantes."""
+        try:
+            item = QueueItem.objects.get(pk=pk)
+        except QueueItem.DoesNotExist:
+            return Response({"detail": "Ítem no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        item.status = QueueItem.Status.SKIPPED
+        item.save(update_fields=["status"])
+
+        # Recalcula posiciones y tiempos estimados de los activos restantes.
+        remaining = list(QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position"))
+        for idx, q in enumerate(remaining, start=1):
+            q.position = idx
+            q.estimated_wait_seconds = compute_estimated_wait(remaining[: idx - 1])
+            q.save(update_fields=["position", "estimated_wait_seconds"])
+
+        return Response(QueueItemSerializer(item).data)
