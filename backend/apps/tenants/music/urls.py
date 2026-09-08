@@ -2,7 +2,11 @@
 
 from django.urls import path
 
-from apps.tenants.music.client_views import ClientRequestView, ClientTableDetailView
+from apps.tenants.music.client_views import (
+    ClientRequestView,
+    ClientSearchView,
+    ClientTableDetailView,
+)
 from apps.tenants.music.views import (
     PlaylistItemDetailView,
     PlaylistListCreateView,
@@ -22,6 +26,7 @@ urlpatterns = [
     path("requests/<int:pk>/approve/", RequestApproveView.as_view(), name="request-approve"),
     path("requests/<int:pk>/reject/", RequestRejectView.as_view(), name="request-reject"),
     # Vista pública del cliente (sin auth, protegida por qr_hash).
+    path("client/search/", ClientSearchView.as_view(), name="client-search"),
     path("client/<slug:slug>/table/<str:qr_hash>/", ClientTableDetailView.as_view(), name="client-table"),
     path("client/<slug:slug>/request/", ClientRequestView.as_view(), name="client-request"),
 ]

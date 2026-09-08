@@ -19,6 +19,15 @@ export interface QueueItem {
   estimated_wait_seconds: number
 }
 
+/** Resultado de búsqueda en YouTube (Innertube). */
+export interface YouTubeResult {
+  youtube_id: string
+  title: string
+  artist: string
+  duration_seconds: number
+  thumbnail_url: string
+}
+
 /** Snapshot inicial que devuelve el backend al escanear el QR. */
 export interface TableSnapshot {
   bar_name: string

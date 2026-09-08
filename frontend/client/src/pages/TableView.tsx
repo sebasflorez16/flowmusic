@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { api } from '@/api'
-import type { PlaylistItem, TableSnapshot } from '@/types'
+import type { PlaylistItem, TableSnapshot, YouTubeResult } from '@/types'
 
 /** Formatea segundos a MM:SS. */
 function formatTime(total: number): string {
@@ -23,7 +23,10 @@ export function TableView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [results, setResults] = useState<YouTubeResult[]>([])
+  const [searching, setSearching] = useState(false)
   const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /** Carga el snapshot de la mesa desde el backend. */
   const load = async (silent = false) => {
@@ -51,7 +54,30 @@ export function TableView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, hash])
 
-  /** Filtra el catálogo por búsqueda. */
+  // Búsqueda en YouTube (Innertube) con debounce de 400ms.
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setResults([])
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        setResults(await api<YouTubeResult[]>(`/client/search/?q=${encodeURIComponent(q)}`))
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 400)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [query])
+
+  /** Filtra el catálogo local por búsqueda. */
   const catalog = useMemo(() => {
     if (!snapshot) return []
     const q = query.trim().toLowerCase()
@@ -62,13 +88,20 @@ export function TableView() {
     )
   }, [snapshot, query])
 
-  /** Pide una canción para esta mesa. */
-  const requestSong = async (item: PlaylistItem) => {
+  /** Pide una canción para esta mesa (desde catálogo o resultado de YouTube). */
+  const requestSong = async (item: PlaylistItem | YouTubeResult) => {
     setStatus(null)
     try {
       await api(`/client/${slug}/request/`, {
         method: 'POST',
-        body: JSON.stringify({ qr_hash: hash, youtube_id: item.youtube_id }),
+        body: JSON.stringify({
+          qr_hash: hash,
+          youtube_id: item.youtube_id,
+          title: item.title,
+          artist: item.artist,
+          duration_seconds: 'duration_seconds' in item ? item.duration_seconds : 0,
+          thumbnail_url: item.thumbnail_url,
+        }),
       })
       setStatus({ msg: `"${item.title}" pedida. ¡El dueño la aprobará!`, ok: true })
     } catch (err) {
@@ -146,38 +179,73 @@ export function TableView() {
         )}
       </section>
 
-      {/* Catálogo */}
+      {/* Catálogo / búsqueda */}
       <section className="glass" style={{ padding: 16 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Pide tu canción</h2>
+        <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>
+          {query.trim() ? 'Resultados de YouTube' : 'Catálogo del bar'}
+        </h2>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar canción…"
+          placeholder="Buscar en YouTube…"
           style={{ marginBottom: 12 }}
         />
-        <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {catalog.map((item) => (
-            <li key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <img
-                src={item.thumbnail_url}
-                alt=""
-                style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {item.title}
-                </p>
-                <p style={{ color: 'var(--muted)', fontSize: 12 }}>{item.artist}</p>
-              </div>
-              <button className="btn" style={{ padding: '8px 12px', fontSize: 13 }} onClick={() => requestSong(item)}>
-                Pedir
-              </button>
-            </li>
-          ))}
-          {catalog.length === 0 && (
-            <p style={{ color: 'var(--muted)', fontSize: 13 }}>No hay canciones para esa búsqueda.</p>
-          )}
-        </ul>
+
+        {searching && (
+          <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Buscando…</p>
+        )}
+
+        {/* Resultados de YouTube cuando hay búsqueda */}
+        {query.trim() ? (
+          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {results.map((item) => (
+              <li key={item.youtube_id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img
+                  src={item.thumbnail_url}
+                  alt=""
+                  style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.title}
+                  </p>
+                  <p style={{ color: 'var(--muted)', fontSize: 12 }}>{item.artist}</p>
+                </div>
+                <button className="btn" style={{ padding: '8px 12px', fontSize: 13 }} onClick={() => requestSong(item)}>
+                  Pedir
+                </button>
+              </li>
+            ))}
+            {!searching && results.length === 0 && (
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>Sin resultados. Prueba otra búsqueda.</p>
+            )}
+          </ul>
+        ) : (
+          /* Catálogo local aprobado cuando no hay búsqueda */
+          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {catalog.map((item) => (
+              <li key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img
+                  src={item.thumbnail_url}
+                  alt=""
+                  style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.title}
+                  </p>
+                  <p style={{ color: 'var(--muted)', fontSize: 12 }}>{item.artist}</p>
+                </div>
+                <button className="btn" style={{ padding: '8px 12px', fontSize: 13 }} onClick={() => requestSong(item)}>
+                  Pedir
+                </button>
+              </li>
+            ))}
+            {catalog.length === 0 && (
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>No hay canciones en el catálogo.</p>
+            )}
+          </ul>
+        )}
       </section>
 
       {/* Estado */}

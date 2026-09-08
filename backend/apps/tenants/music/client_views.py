@@ -21,10 +21,27 @@ from apps.tenants.music.serializers import (
     QueueItemSerializer,
     SongRequestSerializer,
 )
+from apps.tenants.music.youtube import search_youtube
 from apps.tenants.tables.models import Table
 
 # Estados de la cola considerados activos (esperando o reproduciendo).
 ACTIVE_STATUSES = ("approved", "playing")
+
+
+class ClientSearchView(APIView):
+    """Busca videos en YouTube (Innertube) para el buscador del cliente.
+
+    No requiere login ni tenant: la búsqueda es global sobre YouTube.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        """Devuelve resultados de YouTube para la consulta ``q``."""
+        query = request.query_params.get("q", "").strip()
+        if not query:
+            return Response([])
+        return Response(search_youtube(query))
 
 
 class ClientTableDetailView(APIView):
@@ -99,9 +116,23 @@ class ClientRequestView(APIView):
                 return Response({"detail": "Mesa no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
             try:
-                playlist_item = PlaylistItem.objects.get(youtube_id=youtube_id)
-            except PlaylistItem.DoesNotExist:
-                return Response({"detail": "Canción no disponible."}, status=status.HTTP_404_NOT_FOUND)
+                playlist_item, _ = PlaylistItem.objects.get_or_create(
+                    youtube_id=youtube_id,
+                    defaults={
+                        "title": request.data.get("title", ""),
+                        "artist": request.data.get("artist", ""),
+                        "duration_seconds": request.data.get("duration_seconds", 0),
+                        "thumbnail_url": request.data.get(
+                            "thumbnail_url",
+                            f"https://i.ytimg.com/vi/{youtube_id}/hqdefault.jpg",
+                        ),
+                    },
+                )
+            except Exception:
+                return Response(
+                    {"detail": "No se pudo registrar la canción."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Límite de peticiones por hora por mesa.
             one_hour_ago = timezone.now() - timedelta(hours=1)
