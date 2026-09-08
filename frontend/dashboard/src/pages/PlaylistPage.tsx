@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { Plus } from 'lucide-react'
 
@@ -12,19 +12,48 @@ import type { PlaylistItem } from '@/lib/types'
 /**
  * Página de gestión de la playlist (catálogo de canciones aprobadas).
  *
- * Permite buscar, ver y agregar canciones desde YouTube (por URL o ID). La
- * integración real con YouTube se completa en la Fase 2.
+ * Permite buscar, ver y agregar canciones desde YouTube (por URL o ID). El
+ * backend extrae el ID y autocompleta título/artista vía oEmbed.
  */
 export function PlaylistPage() {
   const [items, setItems] = useState<PlaylistItem[]>([])
   const [query, setQuery] = useState('')
   const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+
+  const fetchItems = useCallback(async () => {
+    try {
+      setItems(await api<PlaylistItem[]>('/music/playlist/'))
+    } catch {
+      setItems([])
+    }
+  }, [])
 
   useEffect(() => {
-    void api<PlaylistItem[]>('/music/playlist/')
-      .then(setItems)
-      .catch(() => setItems([]))
-  }, [])
+    void fetchItems()
+  }, [fetchItems])
+
+  /** Agrega una canción a partir de una URL o ID de YouTube. */
+  const handleAdd = async () => {
+    const value = youtubeUrl.trim()
+    if (!value) return
+
+    setAdding(true)
+    setError(null)
+    try {
+      await api<PlaylistItem>('/music/playlist/', {
+        method: 'POST',
+        body: JSON.stringify({ url: value }),
+      })
+      setYoutubeUrl('')
+      await fetchItems()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo agregar la canción')
+    } finally {
+      setAdding(false)
+    }
+  }
 
   const filtered = items.filter(
     (item) =>
@@ -44,11 +73,13 @@ export function PlaylistPage() {
             value={youtubeUrl}
             onChange={(e) => setYoutubeUrl(e.target.value)}
             placeholder="Pega una URL o ID de YouTube"
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
           />
-          <Button>
-            <Plus className="h-4 w-4" /> Agregar
+          <Button onClick={handleAdd} disabled={adding}>
+            <Plus className="h-4 w-4" /> {adding ? 'Agregando…' : 'Agregar'}
           </Button>
         </CardContent>
+        {error && <CardContent className="pt-0 text-sm text-destructive">{error}</CardContent>}
       </Card>
 
       {/* Catálogo */}

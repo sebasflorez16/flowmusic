@@ -13,30 +13,19 @@
         --purple: #8b5cf6;
         --pink: #ec4899;
         --border: rgba(255, 255, 255, 0.12);
+        --green: #10b981;
+        --red: #ef4444;
       }
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         width: 320px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background:
-          radial-gradient(circle at 20% 0%, rgba(139, 92, 246, 0.18), transparent 50%),
-          var(--bg);
+        background: radial-gradient(circle at 20% 0%, rgba(139,92,246,0.18), transparent 50%), var(--bg);
         color: var(--text);
         padding: 16px;
       }
-      h1 {
-        font-size: 15px;
-        margin-bottom: 2px;
-      }
-      .subtitle {
-        font-size: 11px;
-        color: var(--muted);
-        margin-bottom: 14px;
-      }
+      h1 { font-size: 15px; margin-bottom: 2px; }
+      .subtitle { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
       .card {
         background: var(--card);
         border: 1px solid var(--border);
@@ -44,20 +33,18 @@
         padding: 12px;
         margin-bottom: 12px;
       }
-      .card img {
+      .card img { width: 100%; border-radius: 8px; margin-bottom: 8px; }
+      .card .title { font-size: 13px; font-weight: 600; word-break: break-word; }
+      .card .meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+      label { display: block; font-size: 11px; color: var(--muted); margin: 8px 0 4px; }
+      input {
         width: 100%;
+        padding: 9px;
+        border: 1px solid var(--border);
         border-radius: 8px;
-        margin-bottom: 8px;
-      }
-      .card .title {
+        background: rgba(0,0,0,0.25);
+        color: var(--text);
         font-size: 13px;
-        font-weight: 600;
-        word-break: break-word;
-      }
-      .card .meta {
-        font-size: 11px;
-        color: var(--muted);
-        margin-top: 4px;
       }
       button {
         width: 100%;
@@ -69,34 +56,34 @@
         font-weight: 600;
         font-size: 13px;
         cursor: pointer;
+        margin-top: 8px;
       }
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .empty {
-        font-size: 12px;
-        color: var(--muted);
-        text-align: center;
-        padding: 8px 0;
-      }
-      .hint {
-        font-size: 11px;
-        color: var(--muted);
-        line-height: 1.5;
-      }
-      .status {
-        font-size: 12px;
-        margin-top: 10px;
-        min-height: 16px;
-        color: var(--pink);
-      }
+      button.secondary { background: rgba(255,255,255,0.1); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .empty { font-size: 12px; color: var(--muted); text-align: center; padding: 8px 0; }
+      .status { font-size: 12px; margin-top: 10px; min-height: 16px; }
+      .status.ok { color: var(--green); }
+      .status.err { color: var(--red); }
+      .connected { font-size: 11px; color: var(--green); }
     </style>
   </head>
   <body>
     <h1>🎵 MusicFlow</h1>
     <p class="subtitle">Agrega canciones a la playlist de tu bar</p>
 
+    <!-- Conexión al backend -->
+    <div class="card" id="auth-card">
+      <p id="connected-status" class="connected" hidden></p>
+      <div id="login-form">
+        <label>Email</label>
+        <input id="email" type="email" placeholder="dueno@barelfaroc.com" />
+        <label>Contraseña</label>
+        <input id="password" type="password" placeholder="••••••••" />
+        <button id="login-btn">Conectar</button>
+      </div>
+    </div>
+
+    <!-- Video detectado -->
     <div class="card" id="video-card">
       <div class="empty" id="empty">Abre un video de YouTube para detectarlo</div>
       <div id="video-info" hidden>
@@ -108,11 +95,6 @@
 
     <button id="add-btn" disabled>Agregar a mi playlist</button>
     <p class="status" id="status"></p>
-
-    <p class="hint" style="margin-top: 12px">
-      Aún no está conectado al backend. Pronto este botón enviará el video a tu
-      playlist de MusicFlow (endpoint en desarrollo).
-    </p>
 
     <script src="popup.js"></script>
   </body>
