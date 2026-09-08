@@ -248,6 +248,19 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
 # ---------------------------------------------------------------------------
+# Caché
+# ---------------------------------------------------------------------------
+# En desarrollo se usa caché en memoria (no requiere Redis). En producción se
+# sobrescribe con Redis (ver production.py). Se usa para cachear búsquedas de
+# YouTube y metadatos, reduciendo llamadas a la API externa.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "musicflow",
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Channels (WebSockets)
 # ---------------------------------------------------------------------------
 # Redis es obligatorio (no usar in-memory) para que las notificaciones lleguen

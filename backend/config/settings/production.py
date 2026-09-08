@@ -53,6 +53,18 @@ if env("AWS_S3_BUCKET_NAME", default=""):  # noqa: F405
     AWS_QUERYSTRING_AUTH = False  # URLs públicas (para logos y QR)
 
 # ---------------------------------------------------------------------------
+# Caché con Redis (producción)
+# ---------------------------------------------------------------------------
+# Se usa Redis para cachear búsquedas de YouTube y metadatos, compartiendo la
+# instancia con Celery/Channels.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_URL"),  # noqa: F405
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Sentry
 # ---------------------------------------------------------------------------
 if env("SENTRY_DSN", default=""):  # noqa: F405

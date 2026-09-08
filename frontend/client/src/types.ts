@@ -28,6 +28,13 @@ export interface YouTubeResult {
   thumbnail_url: string
 }
 
+/** Mensaje promocional mostrado al cliente. */
+export interface DisplayMessage {
+  id: number
+  text: string
+  message_type: string
+}
+
 /** Snapshot inicial que devuelve el backend al escanear el QR. */
 export interface TableSnapshot {
   bar_name: string
@@ -37,4 +44,5 @@ export interface TableSnapshot {
   playing: QueueItem | null
   queue: QueueItem[]
   catalog: PlaylistItem[]
+  messages: DisplayMessage[]
 }

@@ -8,6 +8,7 @@ dentro del esquema de ese tenant usando ``schema_context``.
 
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.utils import timezone
 from django_tenants.utils import schema_context
 from rest_framework import permissions, status
@@ -15,6 +16,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.models import Tenant
+from apps.tenants.marketing.serializers import DisplayMessageSerializer
+from apps.tenants.marketing.views import active_messages
 from apps.tenants.music.models import PlaylistItem, QueueItem, SongRequest
 from apps.tenants.music.serializers import (
     PlaylistItemSerializer,
@@ -31,17 +34,27 @@ ACTIVE_STATUSES = ("approved", "playing")
 class ClientSearchView(APIView):
     """Busca videos en YouTube (Innertube) para el buscador del cliente.
 
-    No requiere login ni tenant: la búsqueda es global sobre YouTube.
+    No requiere login ni tenant: la búsqueda es global sobre YouTube. Los
+    resultados se cachean para reducir llamadas a la API externa.
     """
 
     permission_classes = [permissions.AllowAny]
+    CACHE_TTL = 1800  # 30 minutos
 
     def get(self, request):
-        """Devuelve resultados de YouTube para la consulta ``q``."""
-        query = request.query_params.get("q", "").strip()
+        """Devuelve resultados de YouTube para la consulta ``q``, con caché."""
+        query = request.query_params.get("q", "").strip().lower()
         if not query:
             return Response([])
-        return Response(search_youtube(query))
+
+        cache_key = f"youtube_search:{query}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        results = search_youtube(query)
+        cache.set(cache_key, results, self.CACHE_TTL)
+        return Response(results)
 
 
 class ClientTableDetailView(APIView):
@@ -71,6 +84,7 @@ class ClientTableDetailView(APIView):
             playing = QueueItem.objects.filter(status=QueueItem.Status.PLAYING).first()
             queue = QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position")
             catalog = PlaylistItem.objects.all().order_by("title")
+            messages = active_messages()
 
             return Response(
                 {
@@ -81,6 +95,7 @@ class ClientTableDetailView(APIView):
                     "playing": QueueItemSerializer(playing).data if playing else None,
                     "queue": QueueItemSerializer(queue, many=True).data,
                     "catalog": PlaylistItemSerializer(catalog, many=True).data,
+                    "messages": DisplayMessageSerializer(messages, many=True).data,
                 }
             )
 

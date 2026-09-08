@@ -131,6 +131,20 @@ export function TableView() {
         </p>
       </header>
 
+      {/* Mensajes / promociones */}
+      {snapshot.messages.length > 0 && (
+        <section className="glass" style={{ padding: 16, borderColor: 'var(--purple)' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--pink)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Promociones
+          </h2>
+          {snapshot.messages.map((m) => (
+            <p key={m.id} style={{ fontSize: 14, marginBottom: 6, lineHeight: 1.4 }}>
+              {m.text}
+            </p>
+          ))}
+        </section>
+      )}
+
       {/* Canción actual */}
       {snapshot.playing && (
         <section className="glass" style={{ padding: 16 }}>
