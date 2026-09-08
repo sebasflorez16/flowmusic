@@ -13,6 +13,7 @@ import type { Table } from '@/lib/types'
  */
 export function TablesPage() {
   const [tables, setTables] = useState<Table[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   const fetchTables = useCallback(async () => {
     try {
@@ -27,11 +28,12 @@ export function TablesPage() {
   }, [fetchTables])
 
   const handleCreate = async (number: number) => {
+    setError(null)
     try {
       await api<Table>('/tables/', { method: 'POST', body: JSON.stringify({ number }) })
       await fetchTables()
-    } catch {
-      // El error ya se maneja en el cliente api; aquí se ignora para UX.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear la mesa')
     }
   }
 
@@ -41,6 +43,7 @@ export function TablesPage() {
         <CardTitle className="text-base">Mesas y códigos QR</CardTitle>
       </CardHeader>
       <CardContent>
+        {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
         <TableManager tables={tables} onCreate={handleCreate} />
       </CardContent>
     </Card>

@@ -9,7 +9,7 @@
 export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled'
 
 /** Planes disponibles. */
-export type Plan = 'basic' | 'pro' | 'premium'
+export type Plan = 'pro' | 'premium'
 
 /** Mesa del bar. */
 export interface Table {

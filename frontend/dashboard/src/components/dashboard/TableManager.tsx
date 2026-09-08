@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { Plus, QrCode } from 'lucide-react'
+import { Download, Plus } from 'lucide-react'
 
 import { QRGenerator } from '@/components/common/QRGenerator'
 import { Badge } from '@/components/ui/badge'
@@ -24,8 +24,8 @@ function tableUrl(qrHash: string): string {
 /**
  * Gestor de mesas y códigos QR.
  *
- * Permite añadir mesas, ver el QR único de cada una y descargarlo. Cada QR
- * apunta a la vista móvil del cliente para esa mesa.
+ * Muestra el QR con el branding de MusicFlow (generado por el backend, listo
+ * para imprimir), permite añadir mesas y descargar la imagen de cada QR.
  */
 export function TableManager({ tables, onCreate }: TableManagerProps) {
   const [number, setNumber] = useState('')
@@ -76,17 +76,33 @@ export function TableManager({ tables, onCreate }: TableManagerProps) {
                 </Badge>
               </div>
 
-              <QRGenerator value={tableUrl(table.qr_hash)} size={112} />
+              {/* QR con branding (backend) o fallback al QR simple. */}
+              {table.qr_image_url ? (
+                <img
+                  src={table.qr_image_url}
+                  alt={`QR Mesa ${table.number}`}
+                  className="h-28 w-auto rounded"
+                />
+              ) : (
+                <QRGenerator value={tableUrl(table.qr_hash)} size={112} />
+              )}
 
               <a
                 href={tableUrl(table.qr_hash)}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                className="text-xs text-muted-foreground hover:text-foreground"
               >
-                <QrCode className="h-3 w-3" />
                 {table.qr_hash.slice(0, 10)}…
               </a>
+
+              {table.qr_image_url && (
+                <a href={table.qr_image_url} download className="w-full">
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Download className="h-3 w-3" /> Descargar
+                  </Button>
+                </a>
+              )}
             </div>
           ))}
         </div>

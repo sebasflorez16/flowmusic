@@ -199,7 +199,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.users.authentication.TenantJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
@@ -260,6 +260,12 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+# ---------------------------------------------------------------------------
+# URLs públicas de los frontends
+# ---------------------------------------------------------------------------
+# Base de la vista del cliente (PWA móvil) para construir los QR de las mesas.
+CLIENT_BASE_URL = env("CLIENT_BASE_URL", default="http://localhost:5174")
 
 # ---------------------------------------------------------------------------
 # Wompi (pagos)

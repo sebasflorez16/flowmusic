@@ -24,7 +24,6 @@ class Tenant(TenantMixin):
     class Plan(models.TextChoices):
         """Planes de suscripción disponibles."""
 
-        BASIC = "basic", "Básico"
         PRO = "pro", "Pro"
         PREMIUM = "premium", "Premium"
 
@@ -55,7 +54,7 @@ class Tenant(TenantMixin):
     logo_url = models.URLField("URL del logo", blank=True)
 
     # --- Suscripción y pagos --------------------------------------------------
-    plan = models.CharField("plan", max_length=20, choices=Plan.choices, default=Plan.BASIC)
+    plan = models.CharField("plan", max_length=20, choices=Plan.choices, default=Plan.PRO)
     subscription_status = models.CharField(
         "estado de suscripción",
         max_length=20,
@@ -74,7 +73,7 @@ class Tenant(TenantMixin):
     next_billing_date = models.DateField("próxima fecha de facturación", null=True, blank=True)
 
     # --- Configuración del negocio -------------------------------------------
-    max_tables = models.PositiveIntegerField("número máximo de mesas", default=50)
+    max_tables = models.PositiveIntegerField("número máximo de mesas", default=8)
     requests_per_hour_limit = models.PositiveIntegerField(
         "límite de peticiones por mesa por hora", default=2
     )
