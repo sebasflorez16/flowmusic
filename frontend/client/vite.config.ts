@@ -20,6 +20,8 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5174,
+    // Permite cualquier host (localhost, IP local, túneles ngrok, etc.) en dev.
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
