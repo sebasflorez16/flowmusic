@@ -75,6 +75,22 @@ body,
   margin-top: 2px;
 }
 
+.mute-btn {
+  margin-top: 12px;
+  padding: 10px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.35);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.mute-btn:hover {
+  background: rgba(139, 92, 246, 0.6);
+}
+
 .next {
   width: 320px;
   display: flex;

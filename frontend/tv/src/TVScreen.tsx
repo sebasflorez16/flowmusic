@@ -39,6 +39,7 @@ function loadYouTubeAPI(): Promise<YouTubeAPI> {
 export function TVScreen() {
   const [snapshot, setSnapshot] = useState<TVSnapshot | null>(null)
   const [currentId, setCurrentId] = useState<number | null>(null)
+  const [muted, setMuted] = useState(true)
   const playerRef = useRef<YTPlayer | null>(null)
   const currentIdRef = useRef<number | null>(null)
   const queueRef = useRef<QueueItem[]>([])
@@ -54,6 +55,19 @@ export function TVScreen() {
   useEffect(() => {
     queueRef.current = snapshot?.queue ?? []
   }, [snapshot])
+
+  /** Activa o silencia el sonido del reproductor. */
+  const toggleMute = () => {
+    const player = playerRef.current
+    if (!player) return
+    if (muted) {
+      player.unmute()
+      setMuted(false)
+    } else {
+      player.mute()
+      setMuted(true)
+    }
+  }
 
   /** Marca una canción como reproduciendo y la carga en el player. */
   const playItem = (item: QueueItem) => {
@@ -101,7 +115,14 @@ export function TVScreen() {
       const el = document.getElementById('player')
       if (!el) return
       playerRef.current = new yt.Player(el, {
-        playerVars: { autoplay: 1, controls: 0, rel: 0 },
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          rel: 0,
+          origin: window.location.origin,
+          playsinline: 1,
+          mute: 1, // autoplay con sonido lo bloquea el navegador; se arranca silenciado
+        },
         events: {
           onStateChange: (event) => {
             if (event.data === YT_ENDED) advance()
@@ -157,6 +178,9 @@ export function TVScreen() {
           ) : (
             <div className="label">Cola vacía · esperando canciones…</div>
           )}
+          <button className="mute-btn" onClick={toggleMute}>
+            {muted ? '🔇 Activar sonido' : '🔊 Sonido activado'}
+          </button>
         </div>
 
         {upcoming.length > 0 && (

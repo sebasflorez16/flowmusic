@@ -29,6 +29,8 @@ export interface TVSnapshot {
 /** Declaración mínima del API de YouTube IFrame. */
 export interface YTPlayer {
   loadVideoById: (videoId: string) => void
+  unmute: () => void
+  mute: () => void
   destroy: () => void
 }
 
