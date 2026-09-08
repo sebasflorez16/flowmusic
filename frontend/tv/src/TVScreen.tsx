@@ -6,9 +6,14 @@ import type { QueueItem, TVSnapshot, YouTubeAPI, YTPlayer } from '@/types'
 /** Estado finalizado de un video en la API de YouTube IFrame. */
 const YT_ENDED = 0
 
+/** Promesa compartida para no cargar el script del API más de una vez. */
+let youtubeAPIPromise: Promise<YouTubeAPI> | null = null
+
 /** Carga el script del API de YouTube IFrame y devuelve el objeto YT. */
 function loadYouTubeAPI(): Promise<YouTubeAPI> {
-  return new Promise((resolve, reject) => {
+  if (youtubeAPIPromise) return youtubeAPIPromise
+
+  youtubeAPIPromise = new Promise((resolve, reject) => {
     const existing = (window as unknown as { YT?: YouTubeAPI }).YT
     if (existing?.Player) {
       resolve(existing)
@@ -27,6 +32,8 @@ function loadYouTubeAPI(): Promise<YouTubeAPI> {
     script.onerror = () => reject(new Error('No se pudo cargar el API de YouTube'))
     document.head.appendChild(script)
   })
+
+  return youtubeAPIPromise
 }
 
 /**
