@@ -26,6 +26,11 @@ env = environ.Env(
     DEBUG=(bool, False),
 )
 
+# Carga las variables desde un archivo .env si existe. No falla si está ausente
+# (en producción las variables vienen del entorno del contenedor).
+if (BASE_DIR / ".env").exists():
+    env.read_env(str(BASE_DIR / ".env"))
+
 # ---------------------------------------------------------------------------
 # Seguridad
 # ---------------------------------------------------------------------------
@@ -68,11 +73,13 @@ INSTALLED_APPS = [
 ]
 
 # Apps que viven en el esquema público (compartido entre todos los tenants).
+# IMPORTANTE: deben usar la ruta completa (``appconfig.name``), no la etiqueta
+# corta, porque el router de django-tenants compara contra ``appconfig.name``.
 SHARED_APPS = [
     "django_tenants",
-    "core",
-    "users",
-    "payments",
+    "apps.core",
+    "apps.users",
+    "apps.payments",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -92,10 +99,10 @@ SHARED_APPS = [
 # de content types para las relaciones genéricas (si se usan).
 TENANT_APPS = [
     "django.contrib.contenttypes",
-    "tables",
-    "music",
-    "marketing",
-    "analytics",
+    "apps.tenants.tables",
+    "apps.tenants.music",
+    "apps.tenants.marketing",
+    "apps.tenants.analytics",
 ]
 
 # Modelo que representa cada tenant (bar) y su modelo de dominio (subdominio).
