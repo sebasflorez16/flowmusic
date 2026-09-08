@@ -31,6 +31,19 @@ from apps.tenants.tables.models import Table
 # Estados de la cola considerados activos (esperando o reproduciendo).
 ACTIVE_STATUSES = ("approved", "playing")
 
+# Consulta de búsqueda por género para el AutoDJ (música acorde al estilo del bar).
+GENRE_QUERIES = {
+    "vallenato": "vallenato exitos",
+    "reggaeton": "reggaeton exitos",
+    "salsa": "salsa exitos",
+    "cumbia": "cumbia exitos",
+    "ranchera": "rancheras exitos",
+    "pop_latino": "pop latino exitos",
+    "rock_espanol": "rock en español exitos",
+    "electronica": "electronica mix",
+    "crossover": "exitos musica variada",
+}
+
 
 def _tv_snapshot(tenant) -> dict:
     """Construye el snapshot de la vista TV (cola, reproducción y mensajes)."""
@@ -249,27 +262,29 @@ class ClientAutoDJView(APIView):
                 status=QueueItem.Status.PLAYED, played_at=timezone.now()
             )
 
-            # Semilla: la canción reproducida más recientemente que NO haya
-            # salido del AutoDJ (refleja el estilo real del bar), o en su
-            # defecto el catálogo del dueño.
-            last_played = (
-                QueueItem.objects.filter(status=QueueItem.Status.PLAYED)
-                .exclude(requested_by="AutoDJ")
-                .order_by("-played_at")
-                .values_list("playlist_item__youtube_id", flat=True)
-                .first()
-            )
-            seed = last_played or PlaylistItem.objects.values_list(
-                "youtube_id", flat=True
-            ).first()
-            if not seed:
-                return Response(_tv_snapshot(tenant))
+            # Busca música acorde al género registrado del bar. Si no hay
+            # género definido, cae a los relacionados de la última canción.
+            query = GENRE_QUERIES.get(tenant.genre)
+            if query:
+                results = search_youtube(query, limit=15)
+            else:
+                last_played = (
+                    QueueItem.objects.filter(status=QueueItem.Status.PLAYED)
+                    .exclude(requested_by="AutoDJ")
+                    .order_by("-played_at")
+                    .values_list("playlist_item__youtube_id", flat=True)
+                    .first()
+                )
+                seed = last_played or PlaylistItem.objects.values_list(
+                    "youtube_id", flat=True
+                ).first()
+                if not seed:
+                    return Response(_tv_snapshot(tenant))
+                results = related_videos(seed, limit=15)
 
-            # Busca relacionados y se queda solo con los reproducibles (embebibles).
-            related = related_videos(seed, limit=15)
             known = set(PlaylistItem.objects.values_list("youtube_id", flat=True))
             candidates = [
-                r for r in related
+                r for r in results
                 if r["youtube_id"] not in known and is_embeddable(r["youtube_id"])
             ]
             if not candidates:

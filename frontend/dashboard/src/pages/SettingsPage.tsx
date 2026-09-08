@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
-import type { Tenant } from '@/lib/types'
+import type { Genre, Tenant } from '@/lib/types'
 import { useAuth } from '@/stores/auth'
 
 /**
@@ -97,6 +97,27 @@ export function SettingsPage() {
               value={form.requests_per_hour_limit}
               onChange={(e) => update('requests_per_hour_limit', Number(e.target.value))}
             />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground" htmlFor="genre">
+              Género musical del bar (para el AutoDJ)
+            </label>
+            <select
+              id="genre"
+              value={form.genre}
+              onChange={(e) => update('genre', e.target.value as Genre)}
+              className="neumorphic-inset h-10 w-full rounded-md px-3 text-sm"
+            >
+              <option value="vallenato">Vallenato</option>
+              <option value="reggaeton">Reggaetón</option>
+              <option value="salsa">Salsa</option>
+              <option value="cumbia">Cumbia</option>
+              <option value="ranchera">Ranchera</option>
+              <option value="pop_latino">Pop latino</option>
+              <option value="rock_espanol">Rock en español</option>
+              <option value="electronica">Electrónica</option>
+              <option value="crossover">Variado</option>
+            </select>
           </div>
         </CardContent>
       </Card>

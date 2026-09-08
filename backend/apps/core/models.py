@@ -35,6 +35,19 @@ class Tenant(TenantMixin):
         PAST_DUE = "past_due", "Vencido"
         CANCELED = "canceled", "Cancelado"
 
+    class Genre(models.TextChoices):
+        """Géneros musicales del bar (usados por el AutoDJ)."""
+
+        VALLENATO = "vallenato", "Vallenato"
+        REGGAETON = "reggaeton", "Reggaetón"
+        SALSA = "salsa", "Salsa"
+        CUMBIA = "cumbia", "Cumbia"
+        RANCHERA = "ranchera", "Ranchera"
+        POP_LATINO = "pop_latino", "Pop latino"
+        ROCK_ESPANOL = "rock_espanol", "Rock en español"
+        ELECTRONICA = "electronica", "Electrónica"
+        CROSSOVER = "crossover", "Variado"
+
     # django-tenants crea el esquema automáticamente al guardar el tenant.
     auto_create_schema = True
     auto_drop_schema = False
@@ -79,6 +92,13 @@ class Tenant(TenantMixin):
     )
     crossfade_enabled = models.BooleanField("crossfade activado", default=False)
     autodj_enabled = models.BooleanField("AutoDJ activado", default=False)
+    genre = models.CharField(
+        "género musical",
+        max_length=20,
+        choices=Genre.choices,
+        default=Genre.CROSSOVER,
+        help_text="Género del bar; el AutoDJ pide música acorde a este estilo.",
+    )
 
     created_at = models.DateTimeField("creado", auto_now_add=True)
     updated_at = models.DateTimeField("actualizado", auto_now=True)

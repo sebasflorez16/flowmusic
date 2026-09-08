@@ -29,6 +29,7 @@ const DEMO_TENANT: Tenant = {
   requests_per_hour_limit: 2,
   crossfade_enabled: true,
   autodj_enabled: true,
+  genre: 'vallenato',
 }
 
 /**

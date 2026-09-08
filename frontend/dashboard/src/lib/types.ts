@@ -11,6 +11,18 @@ export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled'
 /** Planes disponibles. */
 export type Plan = 'pro' | 'premium'
 
+/** Géneros musicales del bar (usados por el AutoDJ). */
+export type Genre =
+  | 'vallenato'
+  | 'reggaeton'
+  | 'salsa'
+  | 'cumbia'
+  | 'ranchera'
+  | 'pop_latino'
+  | 'rock_espanol'
+  | 'electronica'
+  | 'crossover'
+
 /** Mesa del bar. */
 export interface Table {
   id: number
@@ -108,6 +120,7 @@ export interface Tenant {
   requests_per_hour_limit: number
   crossfade_enabled: boolean
   autodj_enabled: boolean
+  genre: Genre
 }
 
 /** Estadísticas agregadas para el dashboard. */

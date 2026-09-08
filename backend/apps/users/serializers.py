@@ -37,6 +37,7 @@ class TenantSerializer(serializers.ModelSerializer):
             "requests_per_hour_limit",
             "crossfade_enabled",
             "autodj_enabled",
+            "genre",
         )
 
 
@@ -82,6 +83,7 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     business_name = serializers.CharField(max_length=120)
     slug = serializers.CharField(required=False, allow_blank=True)
+    genre = serializers.ChoiceField(choices=Tenant.Genre.choices, required=False, default=Tenant.Genre.CROSSOVER)
 
     def validate_email(self, value):
         """Garantiza que el email no esté registrado previamente."""
@@ -118,8 +120,9 @@ class RegisterSerializer(serializers.Serializer):
             name=business_name,
             slug=slug,
             owner_email=email,
-            plan=Tenant.Plan.BASIC,
+            plan=Tenant.Plan.PRO,
             subscription_status=Tenant.SubscriptionStatus.TRIALING,
+            genre=validated_data.get("genre", Tenant.Genre.CROSSOVER),
         )
 
         # 3. Dominio/subdominio del tenant (placeholder en desarrollo).
