@@ -108,3 +108,90 @@ def search_youtube(query: str, limit: int = 10) -> list[dict]:
         pass
 
     return results
+
+
+def related_videos(video_id: str, limit: int = 10) -> list[dict]:
+    """Obtiene videos relacionados a un video dado (recomendados por YouTube).
+
+    Usa el endpoint interno ``/youtubei/v1/next`` (Innertube), el mismo que
+    alimenta la lista de "A continuación" de YouTube. Devuelve canciones
+    similares (mismo artista/género) sin consumir API key propia.
+    """
+    payload = {**_context(), "videoId": video_id}
+    try:
+        response = requests.post(
+            "https://www.youtube.com/youtubei/v1/next",
+            params={"key": INNERTUBE_KEY, "prettyPrint": "false"},
+            json=payload,
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return []
+
+    results: list[dict] = []
+    try:
+        sections = (
+            data["contents"]["twoColumnWatchNextResults"]["secondaryResults"]
+            ["secondaryResults"]["results"]
+        )
+        for section in sections:
+            parsed = _parse_lockup(section.get("lockupViewModel")) or _parse_compact(
+                section.get("compactVideoRenderer")
+            )
+            if parsed:
+                results.append(parsed)
+                if len(results) >= limit:
+                    break
+    except (KeyError, TypeError):
+        pass
+
+    return results
+
+
+def _parse_lockup(video: dict | None) -> dict | None:
+    """Parsea un ``lockupViewModel`` (formato nuevo de YouTube)."""
+    if not video:
+        return None
+    video_id = video.get("contentId")
+    if not video_id:
+        return None
+
+    meta = video.get("metadata", {}).get("lockupMetadataViewModel", {})
+    title = meta.get("title", {}).get("content", "")
+    artist = meta.get("metadata", {}).get("content", "") or ""
+
+    thumbnails = (
+        video.get("contentImage", {})
+        .get("thumbnailViewModel", {})
+        .get("image", {})
+        .get("sources", [])
+    )
+    thumbnail_url = thumbnails[-1]["url"] if thumbnails else ""
+
+    return {
+        "youtube_id": video_id,
+        "title": title,
+        "artist": artist,
+        "duration_seconds": 0,
+        "thumbnail_url": thumbnail_url,
+    }
+
+
+def _parse_compact(video: dict | None) -> dict | None:
+    """Parsea un ``compactVideoRenderer`` (formato anterior de YouTube)."""
+    if not video:
+        return None
+    video_id = video.get("videoId")
+    if not video_id:
+        return None
+    thumbnails = video.get("thumbnail", {}).get("thumbnails", [])
+    thumbnail_url = thumbnails[-1]["url"] if thumbnails else ""
+    return {
+        "youtube_id": video_id,
+        "title": _text(video, "title"),
+        "artist": _text(video, "longBylineText") or _text(video, "shortBylineText"),
+        "duration_seconds": _parse_duration(video),
+        "thumbnail_url": thumbnail_url,
+    }

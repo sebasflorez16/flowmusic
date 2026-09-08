@@ -24,6 +24,7 @@ export function TVScreen() {
   const currentIdRef = useRef<number | null>(null)
   const queueRef = useRef<QueueItem[]>([])
   const advancingRef = useRef(false)
+  const autodjRef = useRef(false)
 
   // Extrae el slug de la URL: /tv/<slug>
   const slug = window.location.pathname.split('/')[2] ?? ''
@@ -105,6 +106,26 @@ export function TVScreen() {
           void api(`/client/${slug}/playing/${first.id}/`, { method: 'POST' }).catch(() => {})
           scheduleAdvance(first)
         }
+      }
+
+      // AutoDJ: si no hay nada sonando y la cola está vacía, pedir una
+      // canción similar al estilo del bar (una sola vez por vacío).
+      if (!data.playing && data.queue.length === 0 && !autodjRef.current) {
+        autodjRef.current = true
+        void api<TVSnapshot>(`/client/${slug}/autodj/`, { method: 'POST' })
+          .then((generated) => {
+            setSnapshot(generated)
+            if (generated.playing) {
+              currentIdRef.current = generated.playing.id
+              setCurrentId(generated.playing.id)
+              scheduleAdvance(generated.playing)
+            }
+          })
+          .catch(() => {
+            autodjRef.current = false
+          })
+      } else if (data.queue.length > 0) {
+        autodjRef.current = false
       }
     } catch {
       // El endpoint no está listo o el bar no existe.

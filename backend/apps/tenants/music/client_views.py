@@ -7,6 +7,7 @@ dentro del esquema de ese tenant usando ``schema_context``.
 """
 
 from datetime import timedelta
+import random
 
 from django.core.cache import cache
 from django.utils import timezone
@@ -24,11 +25,24 @@ from apps.tenants.music.serializers import (
     QueueItemSerializer,
     SongRequestSerializer,
 )
-from apps.tenants.music.youtube import search_youtube
+from apps.tenants.music.youtube import related_videos, search_youtube
 from apps.tenants.tables.models import Table
 
 # Estados de la cola considerados activos (esperando o reproduciendo).
 ACTIVE_STATUSES = ("approved", "playing")
+
+
+def _tv_snapshot(tenant) -> dict:
+    """Construye el snapshot de la vista TV (cola, reproducción y mensajes)."""
+    playing = QueueItem.objects.filter(status=QueueItem.Status.PLAYING).first()
+    queue = QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position")
+    messages = active_messages()
+    return {
+        "bar_name": tenant.name,
+        "playing": QueueItemSerializer(playing).data if playing else None,
+        "queue": QueueItemSerializer(queue, many=True).data,
+        "messages": DisplayMessageSerializer(messages, many=True).data,
+    }
 
 
 class ClientSearchView(APIView):
@@ -202,6 +216,70 @@ class ClientTVView(APIView):
                     "messages": DisplayMessageSerializer(messages, many=True).data,
                 }
             )
+
+
+class ClientAutoDJView(APIView):
+    """AutoDJ: cuando la cola queda vacía, genera una canción coherente.
+
+    Busca una canción similar a las que ya se reprodujeron (usando los
+    relacionados de YouTube) para que el bar siga sonando acorde a su estilo
+    (p. ej. vallenato en un bar de vallenato) en vez de música aleatoria.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, slug):
+        """Genera y reproduce una canción similar si la cola está vacía."""
+        try:
+            tenant = Tenant.objects.get(slug=slug)
+        except Tenant.DoesNotExist:
+            return Response({"detail": "Bar no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        with schema_context(tenant.schema_name):
+            # Si ya hay cola activa, no hace falta generar nada.
+            if QueueItem.objects.filter(status__in=ACTIVE_STATUSES).exists():
+                return Response(_tv_snapshot(tenant))
+
+            if not tenant.autodj_enabled:
+                return Response(_tv_snapshot(tenant))
+
+            # Semilla: una canción reproducida recientemente (o del catálogo).
+            played = list(
+                QueueItem.objects.filter(status=QueueItem.Status.PLAYED)
+                .order_by("-played_at")[:10]
+                .values_list("playlist_item__youtube_id", flat=True)
+            )
+            seed_ids = played or list(
+                PlaylistItem.objects.values_list("youtube_id", flat=True)
+            )
+            if not seed_ids:
+                return Response(_tv_snapshot(tenant))
+
+            seed = random.choice(seed_ids)
+            related = related_videos(seed, limit=10)
+
+            # Evita repetir canciones que ya están en el catálogo.
+            known = set(PlaylistItem.objects.values_list("youtube_id", flat=True))
+            candidates = [r for r in related if r["youtube_id"] not in known] or related
+            pick = random.choice(candidates)
+
+            playlist_item, _ = PlaylistItem.objects.get_or_create(
+                youtube_id=pick["youtube_id"],
+                defaults={
+                    "title": pick["title"],
+                    "artist": pick["artist"],
+                    "thumbnail_url": pick["thumbnail_url"],
+                },
+            )
+            QueueItem.objects.create(
+                playlist_item=playlist_item,
+                requested_by="AutoDJ",
+                status=QueueItem.Status.PLAYING,
+                position=1,
+                estimated_wait_seconds=0,
+            )
+
+            return Response(_tv_snapshot(tenant))
 
 
 class ClientPlayingView(APIView):
