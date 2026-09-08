@@ -195,3 +195,20 @@ def _parse_compact(video: dict | None) -> dict | None:
         "duration_seconds": _parse_duration(video),
         "thumbnail_url": thumbnail_url,
     }
+
+
+def is_embeddable(video_id: str) -> bool:
+    """Verifica si un video de YouTube se puede reproducir embebido.
+
+    Usa el oEmbed de YouTube: devuelve 200 para videos embebibles y 401/404 para
+    los que no (p. ej. mixes con restricciones o videos bloqueados).
+    """
+    try:
+        response = requests.get(
+            "https://www.youtube.com/oembed",
+            params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"},
+            timeout=10,
+        )
+        return response.status_code == 200
+    except requests.RequestException:
+        return False

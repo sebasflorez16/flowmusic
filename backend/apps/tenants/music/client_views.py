@@ -25,7 +25,7 @@ from apps.tenants.music.serializers import (
     QueueItemSerializer,
     SongRequestSerializer,
 )
-from apps.tenants.music.youtube import related_videos, search_youtube
+from apps.tenants.music.youtube import is_embeddable, related_videos, search_youtube
 from apps.tenants.tables.models import Table
 
 # Estados de la cola considerados activos (esperando o reproduciendo).
@@ -243,24 +243,38 @@ class ClientAutoDJView(APIView):
             if not tenant.autodj_enabled:
                 return Response(_tv_snapshot(tenant))
 
-            # Semilla: una canción reproducida recientemente (o del catálogo).
-            played = list(
+            # Marca cualquier canción "sonando" residual como reproducida para
+            # evitar duplicados de estado.
+            QueueItem.objects.filter(status=QueueItem.Status.PLAYING).update(
+                status=QueueItem.Status.PLAYED, played_at=timezone.now()
+            )
+
+            # Semilla: la canción reproducida más recientemente que NO haya
+            # salido del AutoDJ (refleja el estilo real del bar), o en su
+            # defecto el catálogo del dueño.
+            last_played = (
                 QueueItem.objects.filter(status=QueueItem.Status.PLAYED)
-                .order_by("-played_at")[:10]
+                .exclude(requested_by="AutoDJ")
+                .order_by("-played_at")
                 .values_list("playlist_item__youtube_id", flat=True)
+                .first()
             )
-            seed_ids = played or list(
-                PlaylistItem.objects.values_list("youtube_id", flat=True)
-            )
-            if not seed_ids:
+            seed = last_played or PlaylistItem.objects.values_list(
+                "youtube_id", flat=True
+            ).first()
+            if not seed:
                 return Response(_tv_snapshot(tenant))
 
-            seed = random.choice(seed_ids)
-            related = related_videos(seed, limit=10)
-
-            # Evita repetir canciones que ya están en el catálogo.
+            # Busca relacionados y se queda solo con los reproducibles (embebibles).
+            related = related_videos(seed, limit=15)
             known = set(PlaylistItem.objects.values_list("youtube_id", flat=True))
-            candidates = [r for r in related if r["youtube_id"] not in known] or related
+            candidates = [
+                r for r in related
+                if r["youtube_id"] not in known and is_embeddable(r["youtube_id"])
+            ]
+            if not candidates:
+                return Response(_tv_snapshot(tenant))
+
             pick = random.choice(candidates)
 
             playlist_item, _ = PlaylistItem.objects.get_or_create(
