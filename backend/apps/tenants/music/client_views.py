@@ -171,3 +171,82 @@ class ClientRequestView(APIView):
             return Response(
                 SongRequestSerializer(song_request).data, status=status.HTTP_201_CREATED
             )
+
+
+class ClientTVView(APIView):
+    """Snapshot para la vista TV (pantalla del bar).
+
+    Devuelve la cola activa, la canción en reproducción y los mensajes en
+    pantalla. Público por slug (la TV del bar no requiere login en el demo).
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, slug):
+        """Devuelve cola, reproducción actual y mensajes para la TV."""
+        try:
+            tenant = Tenant.objects.get(slug=slug)
+        except Tenant.DoesNotExist:
+            return Response({"detail": "Bar no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        with schema_context(tenant.schema_name):
+            playing = QueueItem.objects.filter(status=QueueItem.Status.PLAYING).first()
+            queue = QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position")
+            messages = active_messages()
+
+            return Response(
+                {
+                    "bar_name": tenant.name,
+                    "playing": QueueItemSerializer(playing).data if playing else None,
+                    "queue": QueueItemSerializer(queue, many=True).data,
+                    "messages": DisplayMessageSerializer(messages, many=True).data,
+                }
+            )
+
+
+class ClientPlayingView(APIView):
+    """Marca una canción como "reproduciendo" (avance de la cola).
+
+    Al marcar una nueva canción, la anterior pasa automáticamente a "reproducida"
+    y se recalculan posiciones y tiempos estimados de las restantes.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, slug, pk):
+        """Avanza la cola: marca ``pk`` como reproduciendo."""
+        try:
+            tenant = Tenant.objects.get(slug=slug)
+        except Tenant.DoesNotExist:
+            return Response({"detail": "Bar no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        with schema_context(tenant.schema_name):
+            # La canción que estaba sonando pasa a "reproducida".
+            QueueItem.objects.filter(status=QueueItem.Status.PLAYING).update(
+                status=QueueItem.Status.PLAYED, played_at=timezone.now()
+            )
+
+            try:
+                item = QueueItem.objects.get(pk=pk)
+            except QueueItem.DoesNotExist:
+                return Response({"detail": "Ítem no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+            item.status = QueueItem.Status.PLAYING
+            item.started_at = timezone.now()
+            item.save(update_fields=["status", "started_at"])
+
+            item.playlist_item.play_count += 1
+            item.playlist_item.save(update_fields=["play_count"])
+
+            # Recalcula posiciones y tiempos de espera de las aprobadas restantes.
+            remaining = list(
+                QueueItem.objects.filter(status=QueueItem.Status.APPROVED).order_by("position")
+            )
+            for idx, q in enumerate(remaining, start=1):
+                q.position = idx
+                q.estimated_wait_seconds = sum(
+                    q2.playlist_item.duration_seconds or 180 for q2 in remaining[:idx]
+                )
+                q.save(update_fields=["position", "estimated_wait_seconds"])
+
+            return Response(QueueItemSerializer(item).data)

@@ -3,9 +3,11 @@
 from django.urls import path
 
 from apps.tenants.music.client_views import (
+    ClientPlayingView,
     ClientRequestView,
     ClientSearchView,
     ClientTableDetailView,
+    ClientTVView,
 )
 from apps.tenants.music.views import (
     PlaylistItemDetailView,
@@ -29,4 +31,6 @@ urlpatterns = [
     path("client/search/", ClientSearchView.as_view(), name="client-search"),
     path("client/<slug:slug>/table/<str:qr_hash>/", ClientTableDetailView.as_view(), name="client-table"),
     path("client/<slug:slug>/request/", ClientRequestView.as_view(), name="client-request"),
+    path("client/<slug:slug>/tv/", ClientTVView.as_view(), name="client-tv"),
+    path("client/<slug:slug>/playing/<int:pk>/", ClientPlayingView.as_view(), name="client-playing"),
 ]
