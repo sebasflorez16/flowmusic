@@ -26,6 +26,7 @@ export function TableView() {
   const [results, setResults] = useState<YouTubeResult[]>([])
   const [searching, setSearching] = useState(false)
   const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set())
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /** Carga el snapshot de la mesa desde el backend. */
@@ -103,7 +104,8 @@ export function TableView() {
           thumbnail_url: item.thumbnail_url,
         }),
       })
-      setStatus({ msg: `"${item.title}" pedida. ¡El dueño la aprobará!`, ok: true })
+      setRequestedIds((prev) => new Set(prev).add(item.youtube_id))
+      setStatus({ msg: `✓ "${item.title}" enviada al dueño para aprobar`, ok: true })
     } catch (err) {
       setStatus({ msg: err instanceof Error ? err.message : 'No se pudo pedir', ok: false })
     }
@@ -225,8 +227,17 @@ export function TableView() {
                   </p>
                   <p style={{ color: 'var(--muted)', fontSize: 12 }}>{item.artist}</p>
                 </div>
-                <button className="btn" style={{ padding: '8px 12px', fontSize: 13 }} onClick={() => requestSong(item)}>
-                  Pedir
+                <button
+                  className="btn"
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: 13,
+                    background: requestedIds.has(item.youtube_id) ? 'var(--green)' : undefined,
+                  }}
+                  onClick={() => requestSong(item)}
+                  disabled={requestedIds.has(item.youtube_id)}
+                >
+                  {requestedIds.has(item.youtube_id) ? '✓ Pedida' : 'Pedir'}
                 </button>
               </li>
             ))}
@@ -250,8 +261,17 @@ export function TableView() {
                   </p>
                   <p style={{ color: 'var(--muted)', fontSize: 12 }}>{item.artist}</p>
                 </div>
-                <button className="btn" style={{ padding: '8px 12px', fontSize: 13 }} onClick={() => requestSong(item)}>
-                  Pedir
+                <button
+                  className="btn"
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: 13,
+                    background: requestedIds.has(item.youtube_id) ? 'var(--green)' : undefined,
+                  }}
+                  onClick={() => requestSong(item)}
+                  disabled={requestedIds.has(item.youtube_id)}
+                >
+                  {requestedIds.has(item.youtube_id) ? '✓ Pedida' : 'Pedir'}
                 </button>
               </li>
             ))}
@@ -262,15 +282,24 @@ export function TableView() {
         )}
       </section>
 
-      {/* Estado */}
+      {/* Estado (toast fijo arriba, bien visible) */}
       {status && (
         <div
           className="glass"
           style={{
-            padding: 12,
-            fontSize: 14,
+            position: 'fixed',
+            top: 16,
+            left: 16,
+            right: 16,
+            maxWidth: 448,
+            margin: '0 auto',
+            zIndex: 50,
+            padding: 14,
+            fontSize: 15,
+            fontWeight: 600,
             color: status.ok ? 'var(--green)' : 'var(--red)',
             textAlign: 'center',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
           }}
         >
           {status.msg}
