@@ -25,6 +25,8 @@ interface QueueState {
   rejectRequest: (requestId: number) => Promise<void>
   /** Salta un ítem de la cola. */
   skipItem: (queueItemId: number) => Promise<void>
+  /** Reproduce un ítem de la cola (lo marca como "reproduciendo"). */
+  playItem: (queueItemId: number) => Promise<void>
   /** Reemplaza la cola con un snapshot recibido por WebSocket. */
   setQueue: (queue: QueueItem[]) => void
   /** Reemplaza las peticiones pendientes con un snapshot. */
@@ -61,6 +63,11 @@ export const useQueue = create<QueueState>((set, get) => ({
 
   skipItem: async (queueItemId) => {
     await api(`/music/queue/${queueItemId}/skip/`, { method: 'POST' })
+    await get().fetchQueue()
+  },
+
+  playItem: async (queueItemId) => {
+    await api(`/music/queue/${queueItemId}/play/`, { method: 'POST' })
     await get().fetchQueue()
   },
 

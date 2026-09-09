@@ -24,7 +24,7 @@ const EMPTY_SUMMARY: StatsSummary = {
  * pendientes en tiempo real.
  */
 export function DashboardPage() {
-  const { queue, pendingRequests, approveRequest, rejectRequest, skipItem } = useQueueSync()
+  const { queue, pendingRequests, approveRequest, rejectRequest, skipItem, playItem } = useQueueSync()
   const [summary, setSummary] = useState<StatsSummary>(EMPTY_SUMMARY)
   const [requestsByDay, setRequestsByDay] = useState<RequestsByDay[]>([])
 
@@ -58,7 +58,7 @@ export function DashboardPage() {
             <CardTitle className="text-base">Cola de reproducción</CardTitle>
           </CardHeader>
           <CardContent>
-            <QueueList items={queue} onSkip={skipItem} />
+            <QueueList items={queue} onSkip={skipItem} onPlay={playItem} />
           </CardContent>
         </Card>
       </div>

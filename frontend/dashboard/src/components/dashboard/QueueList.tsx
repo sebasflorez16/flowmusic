@@ -1,4 +1,4 @@
-import { SkipForward } from 'lucide-react'
+import { Play, SkipForward } from 'lucide-react'
 
 import { CountdownTimer } from '@/components/common/CountdownTimer'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,8 @@ interface QueueListProps {
   items: QueueItem[]
   /** Callback para saltar un ítem. */
   onSkip: (id: number) => void
+  /** Callback para reproducir un ítem. */
+  onPlay: (id: number) => void
 }
 
 /** Mapea el estado de un ítem a la variante visual del badge. */
@@ -26,9 +28,9 @@ const STATUS_VARIANT: Record<QueueItem['status'], 'default' | 'accent' | 'succes
  * Lista de la cola de reproducción.
  *
  * Muestra posición, título/artista, mesa que lo pidió, estado y tiempo estimado
- * de espera. Permite saltar un ítem directamente.
+ * de espera. Permite reproducir o saltar un ítem directamente.
  */
-export function QueueList({ items, onSkip }: QueueListProps) {
+export function QueueList({ items, onSkip, onPlay }: QueueListProps) {
   if (items.length === 0) {
     return <p className="py-8 text-center text-sm text-muted-foreground">La cola está vacía</p>
   }
@@ -64,7 +66,17 @@ export function QueueList({ items, onSkip }: QueueListProps) {
             <CountdownTimer seconds={item.estimated_wait_seconds} size="sm" />
           </div>
 
-          {/* Acción */}
+          {/* Acciones */}
+          {item.status !== 'playing' && (
+            <Button
+              variant="default"
+              size="icon"
+              onClick={() => onPlay(item.id)}
+              aria-label="Reproducir canción"
+            >
+              <Play className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

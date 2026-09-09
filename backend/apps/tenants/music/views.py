@@ -245,3 +245,46 @@ class QueueSkipView(APIView):
         if slug:
             emit_queue_updated(slug, _queue_snapshot())
         return Response(QueueItemSerializer(item).data)
+
+
+class QueuePlayView(APIView):
+    """Reproduce un ítem de la cola (lo marca como "reproduciendo").
+
+    La canción que estaba sonando pasa a "reproducida" y las aprobadas restantes
+    se reordenan. La TV recibe el evento ``queue.updated`` y arranca la canción.
+    """
+
+    def post(self, request, pk):
+        """Marca ``pk`` como reproduciendo."""
+        # La canción que estaba sonando pasa a "reproducida".
+        QueueItem.objects.filter(status=QueueItem.Status.PLAYING).update(
+            status=QueueItem.Status.PLAYED, played_at=timezone.now()
+        )
+
+        try:
+            item = QueueItem.objects.get(pk=pk)
+        except QueueItem.DoesNotExist:
+            return Response({"detail": "Ítem no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        item.status = QueueItem.Status.PLAYING
+        item.position = 1
+        item.estimated_wait_seconds = 0
+        item.started_at = timezone.now()
+        item.save(update_fields=["status", "position", "estimated_wait_seconds", "started_at"])
+
+        item.playlist_item.play_count += 1
+        item.playlist_item.save(update_fields=["play_count"])
+
+        # Reordena las aprobadas restantes (2, 3, 4...).
+        remaining = list(
+            QueueItem.objects.filter(status=QueueItem.Status.APPROVED).order_by("position")
+        )
+        for idx, q in enumerate(remaining, start=2):
+            q.position = idx
+            q.estimated_wait_seconds = compute_estimated_wait(remaining[: idx - 1])
+            q.save(update_fields=["position", "estimated_wait_seconds"])
+
+        slug = getattr(getattr(request, "tenant", None), "slug", None)
+        if slug:
+            emit_queue_updated(slug, _queue_snapshot())
+        return Response(QueueItemSerializer(item).data)
