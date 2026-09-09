@@ -20,7 +20,7 @@ export function TVScreen() {
   const [snapshot, setSnapshot] = useState<TVSnapshot | null>(null)
   const [currentId, setCurrentId] = useState<number | null>(null)
   const [messageIndex, setMessageIndex] = useState(0)
-  const [muted, setMuted] = useState(true)
+  const [muted, setMuted] = useState(false)
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentIdRef = useRef<number | null>(null)
@@ -234,7 +234,7 @@ export function TVScreen() {
   const upcoming = snapshot?.queue.filter((item) => item.id !== currentId) ?? []
   const videoId = current?.playlist_item.youtube_id
   const embedUrl = videoId
-    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&playsinline=1&rel=0&controls=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&playsinline=1&rel=0&controls=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
     : null
 
   return (
