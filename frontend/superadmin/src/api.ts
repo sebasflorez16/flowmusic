@@ -1,7 +1,11 @@
 /** Cliente HTTP con JWT para el panel del superadmin. */
 
+import type { Role } from '@/types'
+
 const API_URL = import.meta.env.VITE_API_URL ?? '/api/v1'
 const TOKEN_KEY = 'musicflow.superadmin.token'
+const ROLE_KEY = 'musicflow.superadmin.role'
+const EMAIL_KEY = 'musicflow.superadmin.email'
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -13,6 +17,24 @@ export function setToken(token: string) {
 
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(ROLE_KEY)
+  localStorage.removeItem(EMAIL_KEY)
+}
+
+export function getRole(): Role | null {
+  return (localStorage.getItem(ROLE_KEY) as Role) || null
+}
+
+export function setRole(role: Role) {
+  localStorage.setItem(ROLE_KEY, role)
+}
+
+export function getEmail(): string | null {
+  return localStorage.getItem(EMAIL_KEY)
+}
+
+export function setEmail(email: string) {
+  localStorage.setItem(EMAIL_KEY, email)
 }
 
 export class ApiError extends Error {

@@ -10,6 +10,7 @@ import secrets
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.management import call_command
 from django.utils.text import slugify
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -84,16 +85,21 @@ class LoginSerializer(serializers.Serializer):
         if not user.is_active:
             raise serializers.ValidationError("La cuenta está deshabilitada.")
 
-        # El tenant se obtiene del perfil del usuario (esquema compartido).
+        # El tenant y el rol se obtienen del perfil del usuario (esquema compartido).
         try:
-            tenant = user.profile.tenant
+            profile = user.profile
+            tenant = profile.tenant
+            role = profile.role
         except ObjectDoesNotExist:
             tenant = None
+            role = None
 
         access, refresh = issue_tokens_for_user(user)
         attrs["access"] = access
         attrs["refresh"] = refresh
         attrs["tenant"] = tenant
+        attrs["role"] = role
+        attrs["email"] = user.email
         return attrs
 
 
@@ -105,6 +111,7 @@ class RegisterSerializer(serializers.Serializer):
     business_name = serializers.CharField(max_length=120)
     phone = serializers.CharField(required=False, allow_blank=True, max_length=30)
     slug = serializers.CharField(required=False, allow_blank=True)
+    plan = serializers.ChoiceField(choices=Tenant.Plan.choices, required=False, default=Tenant.Plan.PRO)
     genre = serializers.ChoiceField(choices=Tenant.Genre.choices, required=False, default=Tenant.Genre.CROSSOVER)
 
     def validate_email(self, value):
@@ -143,10 +150,15 @@ class RegisterSerializer(serializers.Serializer):
             slug=slug,
             owner_email=email,
             phone=validated_data.get("phone", ""),
-            plan=Tenant.Plan.PRO,
+            plan=validated_data.get("plan", Tenant.Plan.PRO),
             subscription_status=Tenant.SubscriptionStatus.TRIALING,
             genre=validated_data.get("genre", Tenant.Genre.CROSSOVER),
         )
+
+        # 2b. Aplica las migraciones al esquema recién creado. django-tenants
+        # solo crea el esquema vacío al guardar el tenant; sin este paso el bar
+        # nuevo no tendría tablas y no podría operar.
+        call_command("migrate_schemas", schema_name=tenant.schema_name, interactive=False, verbosity=0)
 
         # 3. Dominio/subdominio del tenant (placeholder en desarrollo).
         Domain.objects.create(domain=f"{slug}.musicflow.com", tenant=tenant, is_primary=True)

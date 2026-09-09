@@ -10,6 +10,7 @@ from apps.payments.superadmin_views import (
     PaymentListCreateView,
     PlanPriceListCreateView,
     StaffCreateView,
+    StaffListView,
     SummaryView,
 )
 
@@ -21,5 +22,6 @@ urlpatterns = [
     path("admin/expenses/", ExpenseListCreateView.as_view(), name="admin-expenses"),
     path("admin/overdue/", OverdueView.as_view(), name="admin-overdue"),
     path("admin/staff/", StaffCreateView.as_view(), name="admin-staff"),
+    path("admin/staff/list/", StaffListView.as_view(), name="admin-staff-list"),
     path("admin/plan-prices/", PlanPriceListCreateView.as_view(), name="admin-plan-prices"),
 ]

@@ -195,6 +195,30 @@ class OverdueView(APIView):
         return Response(data)
 
 
+class StaffListView(APIView):
+    """Lista los socios existentes (solo superadmin)."""
+
+    permission_classes = [IsSuperadmin]
+
+    def get(self, request):
+        staff = (
+            User.objects.filter(profile__role=UserProfile.Role.SOCIO)
+            .order_by("email")
+            .select_related("profile")
+        )
+        data = [
+            {
+                "id": u.id,
+                "email": u.email,
+                "role": UserProfile.Role.SOCIO,
+                "is_active": u.is_active,
+                "date_joined": u.date_joined,
+            }
+            for u in staff
+        ]
+        return Response(data)
+
+
 class StaffCreateView(APIView):
     """Crea una cuenta de socio, verificada con la contraseña del dueño.
 

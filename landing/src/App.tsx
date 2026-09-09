@@ -1,4 +1,10 @@
+import { useState } from 'react'
+
+import { RegisterForm } from './RegisterForm'
+
 export default function App() {
+  const [plan, setPlan] = useState<'pro' | 'premium' | null>(null)
+
   return (
     <>
       <div className="wrap">
@@ -115,7 +121,7 @@ export default function App() {
               <li>✓ QR con marca</li>
               <li>✓ Mensajes y cupones</li>
             </ul>
-            <a className="btn" href="#" style={{ width: '100%' }}>
+            <a className="btn" href="#registro" onClick={() => setPlan('pro')} style={{ width: '100%' }}>
               Empezar con Pro
             </a>
           </div>
@@ -129,10 +135,22 @@ export default function App() {
               <li>✓ Estadísticas avanzadas</li>
               <li>✓ Soporte prioritario</li>
             </ul>
-            <a className="btn" href="#" style={{ width: '100%' }}>
+            <a className="btn" href="#registro" onClick={() => setPlan('premium')} style={{ width: '100%' }}>
               Empezar con Premium
             </a>
           </div>
+        </div>
+      </section>
+
+      <section className="wrap" id="registro">
+        <h2>Crea tu cuenta</h2>
+        <p className="sub">Registra tu bar y empieza a configurarlo hoy mismo.</p>
+        <div style={{ maxWidth: 560, margin: '0 auto' }}>
+          <RegisterForm
+            key={plan ?? 'pro'}
+            initialPlan={plan ?? 'pro'}
+            onClose={() => setPlan(null)}
+          />
         </div>
       </section>
 

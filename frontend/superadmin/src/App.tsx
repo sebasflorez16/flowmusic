@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
-import { api, clearToken, getToken, setToken } from '@/api'
-import type { AdminTenant, OverdueBar, Summary } from '@/types'
+import { api, clearToken, getEmail, getRole, getToken, setEmail, setRole, setToken } from '@/api'
+import type { AdminTenant, LoginResponse, OverdueBar, Role, Staff, Summary } from '@/types'
 
 type Tab = 'resumen' | 'bares' | 'cobrar' | 'cobros' | 'gastos' | 'socios'
 
@@ -11,6 +11,8 @@ const fmt = (n: number) =>
 /** Página principal del superadmin. */
 export default function App() {
   const [token, setTok] = useState(getToken())
+  const [role, setRoleState] = useState<Role | null>(getRole())
+  const [email, setEmailState] = useState<string | null>(getEmail())
   const [tab, setTab] = useState<Tab>('resumen')
   const [summary, setSummary] = useState<Summary | null>(null)
   const [tenants, setTenants] = useState<AdminTenant[]>([])
@@ -39,22 +41,37 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  if (!token) {
-    return <Login onLogin={(t) => setTok(t)} />
+  const onLogin = (data: LoginResponse) => {
+    setToken(data.access)
+    setRole(data.role)
+    setEmail(data.email)
+    setRoleState(data.role)
+    setEmailState(data.email)
+    setTok(data.access)
+    setTab('resumen')
   }
+
+  if (!token) {
+    return <Login onLogin={onLogin} />
+  }
+
+  const isSuperadmin = role === 'superadmin'
 
   return (
     <div className="layout">
       <div className="glass topbar">
         <div>
-          <h1 style={{ fontSize: 18 }}>MusicFlow · Superadmin</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13 }}>Dueños del negocio</p>
+          <h1 style={{ fontSize: 18 }}>MusicFlow · {isSuperadmin ? 'Superadmin' : 'Socio'}</h1>
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            {isSuperadmin ? 'Dueños del negocio' : 'Gestión de bares y cobros'} · {email}
+          </p>
         </div>
         <button
           className="btn ghost"
           onClick={() => {
             clearToken()
             setTok(null)
+            setRoleState(null)
           }}
         >
           Cerrar sesión
@@ -69,7 +86,7 @@ export default function App() {
             ['cobrar', 'Por cobrar'],
             ['cobros', 'Cobros'],
             ['gastos', 'Gastos'],
-            ['socios', 'Socios'],
+            ...(isSuperadmin ? ([['socios', 'Socios']] as [Tab, string][]) : []),
           ] as [Tab, string][]
         ).map(([t, label]) => (
           <button
@@ -214,7 +231,7 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`badge ${color}`}>{label}</span>
 }
 
-function Login({ onLogin }: { onLogin: (token: string) => void }) {
+function Login({ onLogin }: { onLogin: (data: LoginResponse) => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -225,12 +242,15 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
     setLoading(true)
     setError('')
     try {
-      const data = await api<{ access: string }>('/auth/login/', {
+      const data = await api<LoginResponse>('/auth/login/', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       })
-      setToken(data.access)
-      onLogin(data.access)
+      if (data.role !== 'superadmin' && data.role !== 'socio') {
+        setError('Esta cuenta no tiene acceso al panel de administración.')
+        return
+      }
+      onLogin(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión')
     } finally {
@@ -380,6 +400,19 @@ function StaffForm({ onDone }: { onDone: () => void }) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [staff, setStaff] = useState<Staff[]>([])
+
+  const loadStaff = async () => {
+    try {
+      setStaff(await api<Staff[]>('/admin/staff/list/'))
+    } catch {
+      setStaff([])
+    }
+  }
+
+  useEffect(() => {
+    void loadStaff()
+  }, [])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -393,6 +426,7 @@ function StaffForm({ onDone }: { onDone: () => void }) {
       setEmail('')
       setPassword('')
       setConfirm('')
+      void loadStaff()
       onDone()
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : 'Error' })
@@ -400,21 +434,54 @@ function StaffForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <form className="glass panel" onSubmit={submit}>
-      <h2>Crear socio</h2>
-      <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
-        El socio podrá gestionar bares y registrar cobros/gastos. Se requiere tu contraseña de dueño para confirmar.
-      </p>
-      <label>Email del socio</label>
-      <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
-      <label style={{ marginTop: 12 }}>Contraseña del socio</label>
-      <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
-      <label style={{ marginTop: 12 }}>Tu contraseña (verificación de dueño)</label>
-      <input value={confirm} onChange={(e) => setConfirm(e.target.value)} type="password" required />
-      {msg && <p className={`msg ${msg.ok ? 'ok' : 'err'}`}>{msg.text}</p>}
-      <button className="btn" style={{ marginTop: 12 }}>
-        Crear socio
-      </button>
-    </form>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <form className="glass panel" onSubmit={submit}>
+        <h2>Crear socio</h2>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
+          El socio podrá activar bares y registrar cobros en efectivo. Se requiere tu
+          contraseña de dueño para confirmar.
+        </p>
+        <label>Email del socio</label>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+        <label style={{ marginTop: 12 }}>Contraseña del socio</label>
+        <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
+        <label style={{ marginTop: 12 }}>Tu contraseña (verificación de dueño)</label>
+        <input value={confirm} onChange={(e) => setConfirm(e.target.value)} type="password" required />
+        {msg && <p className={`msg ${msg.ok ? 'ok' : 'err'}`}>{msg.text}</p>}
+        <button className="btn" style={{ marginTop: 12 }}>
+          Crear socio
+        </button>
+      </form>
+
+      <div className="glass panel">
+        <h2>Socios ({staff.length})</h2>
+        {staff.length === 0 ? (
+          <p style={{ color: 'var(--muted)' }}>No hay socios registrados todavía.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Estado</th>
+                <th>Desde</th>
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.email}</td>
+                  <td>
+                    <span className={`badge ${s.is_active ? 'green' : 'red'}`}>
+                      {s.is_active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td>{new Date(s.date_joined).toLocaleDateString('es-CO')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
   )
 }

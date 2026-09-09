@@ -81,6 +81,8 @@ class LoginView(APIView):
                 "access": data["access"],
                 "refresh": data["refresh"],
                 "tenant": tenant_data,
+                "role": data["role"],
+                "email": data["email"],
             },
             status=status.HTTP_200_OK,
         )
@@ -108,6 +110,8 @@ class RegisterView(APIView):
                 "access": access,
                 "refresh": refresh,
                 "tenant": TenantSerializer(result["tenant"]).data,
+                "role": UserProfile.Role.OWNER,
+                "email": result["user"].email,
             },
             status=status.HTTP_201_CREATED,
         )

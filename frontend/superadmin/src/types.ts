@@ -1,5 +1,7 @@
 /** Tipos del panel del superadmin. */
 
+export type Role = 'superadmin' | 'socio'
+
 export interface Summary {
   income: number
   expenses: number
@@ -27,4 +29,18 @@ export interface OverdueBar {
   phone: string
   next_billing_date: string
   days_overdue: number
+}
+
+export interface Staff {
+  id: number
+  email: string
+  role: string
+  is_active: boolean
+  date_joined: string
+}
+
+export interface LoginResponse {
+  access: string
+  role: Role
+  email: string
 }
