@@ -193,10 +193,27 @@ export function TVScreen() {
         return
       }
       const msg = data as { type?: string; queue?: TVSnapshot['queue']; playing?: TVSnapshot['playing'] }
-      if (msg.type === 'queue.updated') {
-        setSnapshot((prev) =>
-          prev ? { ...prev, queue: msg.queue ?? [], playing: msg.playing ?? null } : prev,
-        )
+      if (msg.type !== 'queue.updated') return
+
+      setSnapshot((prev) =>
+        prev ? { ...prev, queue: msg.queue ?? [], playing: msg.playing ?? null } : prev,
+      )
+
+      const queue = msg.queue ?? []
+      const stillInQueue = queue.some((q) => q.id === currentIdRef.current)
+
+      if (msg.playing && msg.playing.id !== currentIdRef.current) {
+        // La canción que suena cambió (p. ej. el dueño reprodujo otra): sincroniza.
+        currentIdRef.current = msg.playing.id
+        setCurrentId(msg.playing.id)
+        scheduleAdvance(msg.playing)
+      } else if (!msg.playing && queue.length > 0 && !stillInQueue) {
+        // La canción que sonaba fue saltada y quedan canciones: arranca la primera.
+        const first = queue[0]
+        currentIdRef.current = first.id
+        setCurrentId(first.id)
+        void api(`/client/${slug}/playing/${first.id}/`, { method: 'POST' }).catch(() => {})
+        scheduleAdvance(first)
       }
     }
     return () => socket.close()
@@ -225,7 +242,7 @@ export function TVScreen() {
       <div className="player">
         {embedUrl ? (
           <iframe
-            key={videoId}
+            key={current?.id}
             ref={iframeRef}
             src={embedUrl}
             title="YouTube player"
