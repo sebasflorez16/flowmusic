@@ -11,6 +11,6 @@ urlpatterns = [
     path("", include("apps.tenants.tables.urls")),
     path("", include("apps.tenants.music.urls")),
     path("", include("apps.tenants.marketing.urls")),
+    path("", include("apps.tenants.analytics.urls")),
     path("", include("apps.payments.superadmin_urls")),
-    # path("analytics/", include("apps.tenants.analytics.urls")),
 ]

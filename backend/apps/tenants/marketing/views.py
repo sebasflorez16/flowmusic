@@ -1,4 +1,4 @@
-"""Vistas de marketing (mensajes en pantalla).
+"""Vistas de marketing (mensajes en pantalla y cupones).
 
 Operan sobre el esquema del tenant activo (dueño autenticado).
 """
@@ -6,8 +6,8 @@ Operan sobre el esquema del tenant activo (dueño autenticado).
 from django.utils import timezone
 from rest_framework import generics
 
-from apps.tenants.marketing.models import DisplayMessage
-from apps.tenants.marketing.serializers import DisplayMessageSerializer
+from apps.tenants.marketing.models import Coupon, DisplayMessage
+from apps.tenants.marketing.serializers import CouponSerializer, DisplayMessageSerializer
 
 
 class MessageListCreateView(generics.ListCreateAPIView):
@@ -28,6 +28,26 @@ class MessageDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         """Devuelve los mensajes del tenant."""
         return DisplayMessage.objects.all()
+
+
+class CouponListCreateView(generics.ListCreateAPIView):
+    """Lista y crea cupones de descuento."""
+
+    serializer_class = CouponSerializer
+
+    def get_queryset(self):
+        """Devuelve los cupones del tenant, los más recientes primero."""
+        return Coupon.objects.all().order_by("-created_at")
+
+
+class CouponDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Consulta, edita o elimina un cupón."""
+
+    serializer_class = CouponSerializer
+
+    def get_queryset(self):
+        """Devuelve los cupones del tenant."""
+        return Coupon.objects.all()
 
 
 def active_messages():

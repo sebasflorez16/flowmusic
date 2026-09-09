@@ -1,8 +1,8 @@
-"""Serializers de marketing (mensajes en pantalla)."""
+"""Serializers de marketing (mensajes en pantalla y cupones)."""
 
 from rest_framework import serializers
 
-from apps.tenants.marketing.models import DisplayMessage
+from apps.tenants.marketing.models import Coupon, DisplayMessage
 
 
 class DisplayMessageSerializer(serializers.ModelSerializer):
@@ -20,3 +20,24 @@ class DisplayMessageSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("id", "created_at")
+
+
+class CouponSerializer(serializers.ModelSerializer):
+    """Serializa un cupón de descuento."""
+
+    class Meta:
+        model = Coupon
+        fields = (
+            "id",
+            "code",
+            "description",
+            "discount_type",
+            "value",
+            "valid_from",
+            "valid_until",
+            "is_active",
+            "max_uses",
+            "used_count",
+            "created_at",
+        )
+        read_only_fields = ("id", "used_count", "created_at")

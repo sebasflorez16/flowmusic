@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 import { Navigate, Route, Routes } from 'react-router-dom'
 
@@ -12,42 +12,14 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { StatsPage } from '@/pages/StatsPage'
 import { TablesPage } from '@/pages/TablesPage'
 import { useAuth } from '@/stores/auth'
-import type { Tenant } from '@/lib/types'
-
-/** Tenant de demostración para previsualizar el dashboard sin backend. */
-const DEMO_TENANT: Tenant = {
-  id: 1,
-  name: 'Bar El Faro',
-  slug: 'bar-el-faro',
-  owner_email: 'juansebastianflorezescobar@gmail.com',
-  phone: '',
-  address: '',
-  logo_url: '',
-  plan: 'pro',
-  subscription_status: 'active',
-  max_tables: 20,
-  requests_per_hour_limit: 2,
-  crossfade_enabled: true,
-  autodj_enabled: true,
-  genre: 'vallenato',
-}
 
 /**
  * Protege las rutas del dashboard.
  *
- * Si no hay un tenant logueado, redirige al login. En desarrollo, si no hay
- * sesión, se inyecta un tenant de demostración para poder previsualizar la
- * interfaz sin backend (se elimina al conectar el API real).
+ * Si no hay un tenant logueado (sesión real), redirige al login.
  */
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const tenant = useAuth((s) => s.tenant)
-  const setTenant = useAuth((s) => s.setTenant)
-
-  useEffect(() => {
-    if (import.meta.env.DEV && !tenant) {
-      setTenant(DEMO_TENANT)
-    }
-  }, [tenant, setTenant])
 
   if (!tenant) {
     return <Navigate to="/login" replace />
