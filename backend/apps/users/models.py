@@ -21,6 +21,7 @@ class UserProfile(models.Model):
 
         OWNER = "owner", "Dueño de bar"
         SUPERADMIN = "superadmin", "Superadministrador"
+        SOCIO = "socio", "Socio"
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

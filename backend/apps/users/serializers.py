@@ -82,6 +82,7 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, validators=[validate_password])
     business_name = serializers.CharField(max_length=120)
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=30)
     slug = serializers.CharField(required=False, allow_blank=True)
     genre = serializers.ChoiceField(choices=Tenant.Genre.choices, required=False, default=Tenant.Genre.CROSSOVER)
 
@@ -120,6 +121,7 @@ class RegisterSerializer(serializers.Serializer):
             name=business_name,
             slug=slug,
             owner_email=email,
+            phone=validated_data.get("phone", ""),
             plan=Tenant.Plan.PRO,
             subscription_status=Tenant.SubscriptionStatus.TRIALING,
             genre=validated_data.get("genre", Tenant.Genre.CROSSOVER),

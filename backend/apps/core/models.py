@@ -140,3 +140,24 @@ class Domain(DomainMixin):
 
     def __str__(self) -> str:
         return self.domain
+
+
+class PlanPrice(models.Model):
+    """Precio mensual de cada plan (fuente de verdad para el cobro).
+
+    Centraliza el precio para que el cálculo financiero sea automático y
+    coherente con la realidad (ej. Pro $60.000 COP).
+    """
+
+    plan = models.CharField(
+        "plan", max_length=20, choices=Tenant.Plan.choices, unique=True
+    )
+    monthly_price = models.DecimalField("precio mensual (COP)", max_digits=12, decimal_places=2)
+    is_active = models.BooleanField("vigente", default=True)
+
+    class Meta:
+        verbose_name = "Precio de plan"
+        verbose_name_plural = "Precios de planes"
+
+    def __str__(self) -> str:
+        return f"{self.get_plan_display()} - ${self.monthly_price}"
