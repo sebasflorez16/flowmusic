@@ -77,6 +77,24 @@ export function TVScreen() {
     timerRef.current = setTimeout(() => advance(), duration)
   }
 
+  /** Pide al AutoDJ una canción del género del bar cuando la cola queda vacía. */
+  const triggerAutoDJ = () => {
+    if (autodjRef.current) return
+    autodjRef.current = true
+    void api<TVSnapshot>(`/client/${slug}/autodj/`, { method: 'POST' })
+      .then((generated) => {
+        setSnapshot(generated)
+        if (generated.playing) {
+          currentIdRef.current = generated.playing.id
+          setCurrentId(generated.playing.id)
+          scheduleAdvance(generated.playing)
+        }
+      })
+      .catch(() => {
+        autodjRef.current = false
+      })
+  }
+
   /** Avanza a la siguiente canción de la cola (con guarda anti-doble). */
   const advance = () => {
     if (advancingRef.current) return
@@ -95,14 +113,24 @@ export function TVScreen() {
       void api(`/client/${slug}/playing/${next.id}/`, { method: 'POST' }).catch(() => {})
       scheduleAdvance(next)
     } else {
+      // Fin de la cola: marca la canción como reproducida y deja que el AutoDJ
+      // continúe con el género del bar.
+      const endedId = currentIdRef.current
+      if (endedId) {
+        void api(`/client/${slug}/played/${endedId}/`, { method: 'POST' }).catch(() => {})
+      }
       currentIdRef.current = null
       setCurrentId(null)
       if (timerRef.current) clearTimeout(timerRef.current)
+      triggerAutoDJ()
     }
   }
 
   const advanceRef = useRef(advance)
   advanceRef.current = advance
+
+  const triggerAutoDJRef = useRef(triggerAutoDJ)
+  triggerAutoDJRef.current = triggerAutoDJ
 
   // Detecta el fin del video (postMessage) como refuerzo del temporizador.
   useEffect(() => {
@@ -147,20 +175,8 @@ export function TVScreen() {
 
       // AutoDJ: si no hay nada sonando y la cola está vacía, pedir una
       // canción similar al estilo del bar (una sola vez por vacío).
-      if (!data.playing && data.queue.length === 0 && !autodjRef.current) {
-        autodjRef.current = true
-        void api<TVSnapshot>(`/client/${slug}/autodj/`, { method: 'POST' })
-          .then((generated) => {
-            setSnapshot(generated)
-            if (generated.playing) {
-              currentIdRef.current = generated.playing.id
-              setCurrentId(generated.playing.id)
-              scheduleAdvance(generated.playing)
-            }
-          })
-          .catch(() => {
-            autodjRef.current = false
-          })
+      if (!data.playing && data.queue.length === 0) {
+        triggerAutoDJ()
       } else if (data.queue.length > 0) {
         autodjRef.current = false
       }
@@ -214,6 +230,9 @@ export function TVScreen() {
         setCurrentId(first.id)
         void api(`/client/${slug}/playing/${first.id}/`, { method: 'POST' }).catch(() => {})
         scheduleAdvance(first)
+      } else if (!msg.playing && queue.length === 0) {
+        // Cola vacía: el AutoDJ continúa con el género del bar.
+        triggerAutoDJRef.current()
       }
     }
     return () => socket.close()

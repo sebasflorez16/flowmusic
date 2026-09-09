@@ -377,3 +377,33 @@ class ClientPlayingView(APIView):
 
             emit_queue_updated(slug, _tv_snapshot(tenant))
             return Response(QueueItemSerializer(item).data)
+
+
+class ClientMarkPlayedView(APIView):
+    """Marca una canción como "reproducida" (fin de la cola).
+
+    La TV llama a este endpoint cuando termina la última canción y no hay una
+    siguiente. Así el backend deja la cola vacía y el AutoDJ puede continuar.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, slug, pk):
+        """Marca ``pk`` como reproducida."""
+        try:
+            tenant = Tenant.objects.get(slug=slug)
+        except Tenant.DoesNotExist:
+            return Response({"detail": "Bar no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        with schema_context(tenant.schema_name):
+            try:
+                item = QueueItem.objects.get(pk=pk)
+            except QueueItem.DoesNotExist:
+                return Response({"detail": "Ítem no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+            item.status = QueueItem.Status.PLAYED
+            item.played_at = timezone.now()
+            item.save(update_fields=["status", "played_at"])
+
+            emit_queue_updated(slug, _tv_snapshot(tenant))
+            return Response(QueueItemSerializer(item).data)
