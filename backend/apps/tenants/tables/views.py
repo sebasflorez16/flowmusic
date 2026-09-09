@@ -1,19 +1,24 @@
 """Vistas de la API de mesas.
 
 Operan sobre el esquema del tenant (activado por ``TenantJWTAuthentication``).
-Al crear una mesa se genera automáticamente su QR con el branding de la
-plataforma, que el dueño puede descargar e imprimir.
+El QR de cada mesa se genera bajo demanda (no se persiste en disco), a partir
+del ``qr_hash`` inmutable, de modo que la imagen nunca se pierde ni cambia entre
+despliegues.
 """
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
-from rest_framework import generics, status
+from django.http import HttpResponse
+from django_tenants.utils import schema_context
+from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.models import Tenant
 from apps.tenants.tables.models import Table
-from apps.tenants.tables.qr import save_branded_qr
+from apps.tenants.tables.qr import generate_branded_qr
 from apps.tenants.tables.serializers import TableSerializer
 
 
@@ -37,10 +42,10 @@ class TableListCreateView(generics.ListCreateAPIView):
         return Table.objects.all().order_by("number")
 
     def perform_create(self, serializer):
-        """Crea la mesa, genera su QR con branding y lo guarda en media.
+        """Crea la mesa respetando el máximo de mesas del plan.
 
         Raises:
-            PermissionError: si el tenant alcanzó su máximo de mesas.
+            PermissionDenied: si el tenant alcanzó su máximo de mesas.
         """
         tenant = self.request.tenant
         current_count = Table.objects.count()
@@ -49,20 +54,7 @@ class TableListCreateView(generics.ListCreateAPIView):
                 f"Tu plan {tenant.get_plan_display()} permite máximo "
                 f"{tenant.max_tables} mesas."
             )
-
-        table = serializer.save()
-
-        # Genera el QR con el branding de MusicFlow (publicidad impresa).
-        url = _table_url(table.qr_hash, tenant.slug)
-        relative_path = save_branded_qr(
-            value=url,
-            bar_name=tenant.name,
-            table_number=table.number,
-            media_dir=settings.MEDIA_ROOT,
-            slug=tenant.slug,
-        )
-        table.qr_image_url = f"{settings.MEDIA_URL}{relative_path}"
-        table.save(update_fields=["qr_image_url"])
+        serializer.save()
 
 
 class TableBulkCreateView(APIView):
@@ -87,16 +79,6 @@ class TableBulkCreateView(APIView):
                 table = Table.objects.create(number=number)
             except IntegrityError:
                 continue  # mesa con ese número ya existía
-            url = _table_url(table.qr_hash, tenant.slug)
-            relative_path = save_branded_qr(
-                value=url,
-                bar_name=tenant.name,
-                table_number=table.number,
-                media_dir=settings.MEDIA_ROOT,
-                slug=tenant.slug,
-            )
-            table.qr_image_url = f"{settings.MEDIA_URL}{relative_path}"
-            table.save(update_fields=["qr_image_url"])
             created.append(TableSerializer(table).data)
 
         return Response(created, status=status.HTTP_201_CREATED)
@@ -110,3 +92,36 @@ class TableDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         """Devuelve las mesas del tenant activo."""
         return Table.objects.all()
+
+
+class TableQRView(APIView):
+    """Genera y devuelve la imagen QR (PNG) de una mesa, bajo demanda.
+
+    Es público y se resuelve por ``slug`` + ``qr_hash`` (ambos opacos e
+    inmutables). La imagen se regenera siempre de forma determinística a partir
+    del ``qr_hash``, así que no depende de almacenamiento efímero ni cambia
+    entre despliegues: el QR impreso por el dueño sigue funcionando siempre.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, slug, qr_hash):
+        """Devuelve el PNG del QR de la mesa indicada."""
+        try:
+            tenant = Tenant.objects.get(slug=slug)
+        except Tenant.DoesNotExist:
+            return HttpResponse("Bar no encontrado.", status=404)
+
+        with schema_context(tenant.schema_name):
+            try:
+                table = Table.objects.get(qr_hash=qr_hash)
+            except Table.DoesNotExist:
+                return HttpResponse("Mesa no encontrada.", status=404)
+
+            png = generate_branded_qr(
+                value=_table_url(table.qr_hash, tenant.slug),
+                bar_name=tenant.name,
+                table_number=table.number,
+            )
+
+        return HttpResponse(png, content_type="image/png")

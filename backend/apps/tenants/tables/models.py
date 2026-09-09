@@ -40,7 +40,18 @@ class Table(models.Model):
         return f"Mesa {self.number}"
 
     def save(self, *args, **kwargs):
-        """Genera un ``qr_hash`` único la primera vez que se guarda la mesa."""
+        """Genera un ``qr_hash`` único la primera vez y lo deja inmutable.
+
+        El hash nunca se regenera ni se sobrescribe: el dueño imprime el QR y lo
+        pega en la mesa, por lo que cambiar el hash rompería el acceso de esa
+        mesa. Una vez asignado, es permanente.
+        """
         if not self.qr_hash:
             self.qr_hash = secrets.token_urlsafe(32)
+        elif self.pk:
+            # Si ya existe y trae un hash distinto, se restaura el original
+            # para que el QR impreso siga funcionando siempre.
+            original = Table.objects.filter(pk=self.pk).values_list("qr_hash", flat=True).first()
+            if original and original != self.qr_hash:
+                self.qr_hash = original
         super().save(*args, **kwargs)

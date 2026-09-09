@@ -1,0 +1,24 @@
+# Archivos y carpetas que NO deben copiarse a la imagen de producción.
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+staticfiles
+media
+celerybeat-schedule
+*.log
+*.sqlite3
+Dockerfile
+Dockerfile.dev
+docker-compose.yml

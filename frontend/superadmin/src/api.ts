@@ -1,6 +1,6 @@
 /** Cliente HTTP con JWT para el panel del superadmin. */
 
-const API_URL = '/api/v1'
+const API_URL = import.meta.env.VITE_API_URL ?? '/api/v1'
 const TOKEN_KEY = 'musicflow.superadmin.token'
 
 export function getToken(): string | null {

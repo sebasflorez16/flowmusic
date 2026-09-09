@@ -1,0 +1,22 @@
+# Configuración del servicio "backend" en Railway.
+#
+# Railway lee este archivo al desplegar desde el directorio `backend/`. Define:
+# - build: usa el Dockerfile (imagen de producción con dependencias de prod).
+# - deploy: arranca `entrypoint.sh` (migraciones + collectstatic + uvicorn),
+#   con health check en /health/ y reinicio automático ante fallos.
+#
+# Servicios derivados del mismo repo (se crean aparte en el dashboard de
+# Railway apuntando al mismo repo y directorio `backend/`):
+#   - worker: startCommand = "celery -A config worker --loglevel=info"
+#   - beat:   startCommand = "celery -A config beat --loglevel=info"
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "./entrypoint.sh"
+healthcheckPath = "/health/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

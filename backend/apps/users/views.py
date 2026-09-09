@@ -5,16 +5,59 @@ son apps compartidas). Devuelven el JWT y el tenant para que el frontend del
 dueño arranque con el contexto correcto.
 """
 
-from rest_framework import permissions, status
+from django.contrib.auth import get_user_model
+from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.users.models import UserProfile
 from apps.users.serializers import (
     LoginSerializer,
     RegisterSerializer,
     TenantSerializer,
+    issue_tokens_for_user,
 )
+
+User = get_user_model()
+
+
+class SessionTokenRefreshSerializer(TokenRefreshSerializer):
+    """Refresh token que valida la sesión activa y propaga el claim ``sid``.
+
+    Si la cuenta inició sesión en otro equipo (el ``session_id`` cambió), el
+    refresh token anterior se rechaza. El nuevo access token conserva el ``sid``
+    para que la autenticación lo valide.
+    """
+
+    def validate(self, attrs):
+        refresh = RefreshToken(attrs["refresh"])
+
+        sid = refresh.get("sid")
+        user_id = refresh.get("user_id")
+        if sid is None or user_id is None:
+            raise InvalidToken("Token de refresco inválido.")
+
+        try:
+            profile = UserProfile.objects.get(user_id=user_id)
+        except UserProfile.DoesNotExist:
+            raise InvalidToken("Sesión inválida.")
+
+        if profile.session_id is None or profile.session_id != sid:
+            raise serializers.ValidationError(
+                "Sesión inválida o iniciada en otro equipo."
+            )
+
+        data = super().validate(attrs)
+
+        # El access token recién emitido debe conservar el claim de sesión.
+        new_refresh = RefreshToken(data.get("refresh", attrs["refresh"]))
+        access = new_refresh.access_token
+        access["sid"] = sid
+        data["access"] = str(access)
+        return data
 
 
 class LoginView(APIView):
@@ -58,13 +101,24 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
 
         result = serializer.save()
-        refresh = RefreshToken.for_user(result["user"])
+        access, refresh = issue_tokens_for_user(result["user"])
 
         return Response(
             {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
+                "access": access,
+                "refresh": refresh,
                 "tenant": TenantSerializer(result["tenant"]).data,
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class SessionTokenRefreshView(APIView):
+    """Refresca el access token validando que la sesión siga activa."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = SessionTokenRefreshSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)

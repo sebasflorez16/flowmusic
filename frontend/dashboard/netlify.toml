@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  VITE_API_URL = "https://backend-production-8ade.up.railway.app/api/v1"
+  VITE_WS_URL = "wss://backend-production-8ade.up.railway.app/ws"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

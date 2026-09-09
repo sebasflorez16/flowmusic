@@ -32,8 +32,10 @@ CSRF_COOKIE_SECURE = True
 # ---------------------------------------------------------------------------
 # Orígenes permitidos explícitos (ej. https://app.musicflow.com). Los subdominios
 # dinámicos de tenants se cubren con wildcard solo si el proveedor lo permite;
-# en su defecto se añaden explícitamente.
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")  # noqa: F405
+# en su defecto se añaden explícitamente. En staging/mvp se puede permitir todo
+# con CORS_ALLOW_ALL_ORIGINS=true.
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])  # noqa: F405
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)  # noqa: F405
 
 # ---------------------------------------------------------------------------
 # Almacenamiento en S3 / Cloudflare R2

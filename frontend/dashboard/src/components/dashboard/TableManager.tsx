@@ -2,10 +2,10 @@ import { useState } from 'react'
 
 import { Download, Plus } from 'lucide-react'
 
-import { QRGenerator } from '@/components/common/QRGenerator'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useAuth } from '@/stores/auth'
 import type { Table } from '@/lib/types'
 
 interface TableManagerProps {
@@ -15,10 +15,10 @@ interface TableManagerProps {
   onCreate: (number: number) => void
 }
 
-/** Construye la URL que el cliente escaneará para abrir la vista de su mesa. */
-function tableUrl(qrHash: string): string {
-  const base = import.meta.env.VITE_CLIENT_URL ?? window.location.origin
-  return `${base}/t/${qrHash}`
+/** Construye la URL pública que el cliente escanea para abrir su mesa. */
+function tableUrl(slug: string, qrHash: string): string {
+  const base = import.meta.env.VITE_CLIENT_URL ?? 'https://flowmusic-client.netlify.app'
+  return `${base}/bar/${slug}/t/${qrHash}`
 }
 
 /**
@@ -29,6 +29,7 @@ function tableUrl(qrHash: string): string {
  */
 export function TableManager({ tables, onCreate }: TableManagerProps) {
   const [number, setNumber] = useState('')
+  const slug = useAuth((s) => s.tenant?.slug ?? '')
 
   const handleCreate = () => {
     const n = Number(number)
@@ -76,19 +77,15 @@ export function TableManager({ tables, onCreate }: TableManagerProps) {
                 </Badge>
               </div>
 
-              {/* QR con branding (backend) o fallback al QR simple. */}
-              {table.qr_image_url ? (
-                <img
-                  src={table.qr_image_url}
-                  alt={`QR Mesa ${table.number}`}
-                  className="h-28 w-auto rounded"
-                />
-              ) : (
-                <QRGenerator value={tableUrl(table.qr_hash)} size={112} />
-              )}
+              {/* QR con branding generado por el backend (estable e inmutable). */}
+              <img
+                src={table.qr_image_url}
+                alt={`QR Mesa ${table.number}`}
+                className="h-28 w-auto rounded bg-white"
+              />
 
               <a
-                href={tableUrl(table.qr_hash)}
+                href={tableUrl(slug, table.qr_hash)}
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs text-muted-foreground hover:text-foreground"

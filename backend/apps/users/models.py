@@ -39,6 +39,12 @@ class UserProfile(models.Model):
         help_text="Tenant que administra este usuario (vacío para superadmin).",
     )
     role = models.CharField("rol", max_length=20, choices=Role.choices, default=Role.OWNER)
+    # Identificador de la sesión activa. Cambia en cada login, de modo que un
+    # token emitido antes queda invalidado: una misma cuenta no puede usarse en
+    # dos equipos a la vez (anti-fraude).
+    session_id = models.CharField(
+        "sesión activa", max_length=64, null=True, blank=True, editable=False
+    )
 
     class Meta:
         verbose_name = "Perfil de usuario"

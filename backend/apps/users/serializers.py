@@ -5,6 +5,8 @@ devuelve el JWT (access/refresh) junto con el tenant asociado; el registro crea
 el usuario, su tenant (con esquema propio) y el perfil de dueño.
 """
 
+import secrets
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ObjectDoesNotExist
@@ -16,6 +18,25 @@ from apps.core.models import Domain, Tenant
 from apps.users.models import UserProfile
 
 User = get_user_model()
+
+
+def issue_tokens_for_user(user):
+    """Genera un nuevo par de tokens JWT y rota el ``session_id`` del usuario.
+
+    Cada login emite una sesión nueva (un ``session_id`` aleatorio guardado en
+    el perfil y embebido en ambos tokens). El token emitido antes deja de ser
+    válido, así la cuenta no puede usarse en dos equipos a la vez.
+    """
+    session_id = secrets.token_hex(32)
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile.session_id = session_id
+    profile.save(update_fields=["session_id"])
+
+    refresh = RefreshToken.for_user(user)
+    refresh["sid"] = session_id
+    access = refresh.access_token
+    access["sid"] = session_id
+    return str(access), str(refresh)
 
 
 class TenantSerializer(serializers.ModelSerializer):
@@ -69,9 +90,9 @@ class LoginSerializer(serializers.Serializer):
         except ObjectDoesNotExist:
             tenant = None
 
-        refresh = RefreshToken.for_user(user)
-        attrs["access"] = str(refresh.access_token)
-        attrs["refresh"] = str(refresh)
+        access, refresh = issue_tokens_for_user(user)
+        attrs["access"] = access
+        attrs["refresh"] = refresh
         attrs["tenant"] = tenant
         return attrs
 
