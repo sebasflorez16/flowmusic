@@ -48,13 +48,35 @@ export function TableView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, hash])
 
-  // Auto-refresco silencioso cada 8 segundos para reflejar cambios en la cola.
+  // Auto-refresco de respaldo (60s) + WebSocket para tiempo real.
   useEffect(() => {
     if (!slug || !hash) return
-    const id = setInterval(() => void load(true), 8000)
+    const id = setInterval(() => void load(true), 60000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, hash])
+
+  // WebSocket: actualiza la cola y la canción actual en tiempo real.
+  useEffect(() => {
+    if (!slug) return
+    const wsUrl = import.meta.env.VITE_WS_URL ?? '/ws'
+    const socket = new WebSocket(`${wsUrl}/queue/${slug}/`)
+    socket.onmessage = (event) => {
+      let data: unknown
+      try {
+        data = JSON.parse(event.data)
+      } catch {
+        return
+      }
+      const msg = data as { type?: string; queue?: TableSnapshot['queue']; playing?: TableSnapshot['playing'] }
+      if (msg.type === 'queue.updated') {
+        setSnapshot((prev) =>
+          prev ? { ...prev, queue: msg.queue ?? [], playing: msg.playing ?? null } : prev,
+        )
+      }
+    }
+    return () => socket.close()
+  }, [slug])
 
   // Rotación de mensajes de marketing (uno a la vez, cada 6 segundos).
   const messages = snapshot?.messages ?? []

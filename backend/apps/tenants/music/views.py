@@ -14,6 +14,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.tenants.music.events import emit_queue_updated
 from apps.tenants.music.models import PlaylistItem, QueueItem, SongRequest
 from apps.tenants.music.serializers import (
     PlaylistItemSerializer,
@@ -130,6 +131,16 @@ def _duration(item: PlaylistItem) -> int:
     return item.duration_seconds or DEFAULT_DURATION
 
 
+def _queue_snapshot() -> dict:
+    """Serializa la cola activa y la canción actual para el evento en tiempo real."""
+    playing = QueueItem.objects.filter(status=QueueItem.Status.PLAYING).first()
+    queue = QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position")
+    return {
+        "playing": QueueItemSerializer(playing).data if playing else None,
+        "queue": QueueItemSerializer(queue, many=True).data,
+    }
+
+
 def compute_estimated_wait(before: list[QueueItem]) -> int:
     """Calcula el tiempo estimado de espera sumando lo que va delante."""
     return sum(_duration(item.playlist_item) for item in before)
@@ -179,6 +190,9 @@ class RequestApproveView(APIView):
         song_request.approved_at = timezone.now()
         song_request.save(update_fields=["status", "approved_at"])
 
+        slug = getattr(getattr(request, "tenant", None), "slug", None)
+        if slug:
+            emit_queue_updated(slug, _queue_snapshot())
         return Response(QueueItemSerializer(queue_item).data, status=status.HTTP_201_CREATED)
 
 
@@ -227,4 +241,7 @@ class QueueSkipView(APIView):
             q.estimated_wait_seconds = compute_estimated_wait(remaining[: idx - 1])
             q.save(update_fields=["position", "estimated_wait_seconds"])
 
+        slug = getattr(getattr(request, "tenant", None), "slug", None)
+        if slug:
+            emit_queue_updated(slug, _queue_snapshot())
         return Response(QueueItemSerializer(item).data)

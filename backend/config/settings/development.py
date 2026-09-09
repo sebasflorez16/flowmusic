@@ -25,6 +25,17 @@ CORS_ALLOW_ALL_ORIGINS = True
 INSTALLED_APPS += ["django_extensions"]  # noqa: F405
 
 # ---------------------------------------------------------------------------
+# Channel layer en memoria (desarrollo)
+# ---------------------------------------------------------------------------
+# En desarrollo se usa el channel layer en memoria (un solo proceso daphne), lo
+# que evita depender de Redis. En producción se usa Redis (ver production.py).
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Email en consola
 # ---------------------------------------------------------------------------
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

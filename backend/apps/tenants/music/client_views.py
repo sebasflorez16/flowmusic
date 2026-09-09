@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from apps.core.models import Tenant
 from apps.tenants.marketing.serializers import DisplayMessageSerializer
 from apps.tenants.marketing.views import active_messages
+from apps.tenants.music.events import emit_queue_updated, emit_request_created
 from apps.tenants.music.models import PlaylistItem, QueueItem, SongRequest
 from apps.tenants.music.serializers import (
     PlaylistItemSerializer,
@@ -195,6 +196,7 @@ class ClientRequestView(APIView):
             song_request = SongRequest.objects.create(
                 table=table, playlist_item=playlist_item
             )
+            emit_request_created(slug)
             return Response(
                 SongRequestSerializer(song_request).data, status=status.HTTP_201_CREATED
             )
@@ -308,6 +310,7 @@ class ClientAutoDJView(APIView):
                 estimated_wait_seconds=0,
             )
 
+            emit_queue_updated(slug, _tv_snapshot(tenant))
             return Response(_tv_snapshot(tenant))
 
 
@@ -359,4 +362,5 @@ class ClientPlayingView(APIView):
                 )
                 q.save(update_fields=["position", "estimated_wait_seconds"])
 
+            emit_queue_updated(slug, _tv_snapshot(tenant))
             return Response(QueueItemSerializer(item).data)

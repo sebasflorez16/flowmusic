@@ -171,13 +171,36 @@ export function TVScreen() {
 
   useEffect(() => {
     void load(true)
-    const interval = setInterval(() => void load(false), 5000)
+    // Polling de respaldo (60s); la actualización en tiempo real es por WS.
+    const interval = setInterval(() => void load(false), 60000)
     return () => {
       clearInterval(interval)
       if (timerRef.current) clearTimeout(timerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // WebSocket: actualiza cola y canción actual en tiempo real.
+  useEffect(() => {
+    if (!slug) return
+    const wsUrl = import.meta.env.VITE_WS_URL ?? '/ws'
+    const socket = new WebSocket(`${wsUrl}/queue/${slug}/`)
+    socket.onmessage = (event) => {
+      let data: unknown
+      try {
+        data = JSON.parse(event.data)
+      } catch {
+        return
+      }
+      const msg = data as { type?: string; queue?: TVSnapshot['queue']; playing?: TVSnapshot['playing'] }
+      if (msg.type === 'queue.updated') {
+        setSnapshot((prev) =>
+          prev ? { ...prev, queue: msg.queue ?? [], playing: msg.playing ?? null } : prev,
+        )
+      }
+    }
+    return () => socket.close()
+  }, [slug])
 
   // Rotación de mensajes de marketing (uno a la vez, cada 6 segundos).
   const messages = snapshot?.messages ?? []
