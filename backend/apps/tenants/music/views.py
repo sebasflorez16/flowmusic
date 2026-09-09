@@ -21,6 +21,7 @@ from apps.tenants.music.serializers import (
     QueueItemSerializer,
     SongRequestSerializer,
 )
+from apps.tenants.music.utils import is_recently_played
 
 # Detecta el ID de YouTube en distintos formatos de URL.
 YOUTUBE_ID_RE = re.compile(
@@ -173,6 +174,16 @@ class RequestApproveView(APIView):
         if song_request.status != SongRequest.Status.PENDING:
             return Response(
                 {"detail": "La petición ya fue procesada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Regla de negocio: no repetir canciones en las últimas 2 horas. Si ya
+        # sonó, se rechaza la petición automáticamente.
+        if is_recently_played(song_request.playlist_item.youtube_id):
+            song_request.status = SongRequest.Status.REJECTED
+            song_request.save(update_fields=["status"])
+            return Response(
+                {"detail": "Esta canción ya sonó hace poco; se rechazó automáticamente."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

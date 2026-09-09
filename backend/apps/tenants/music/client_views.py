@@ -27,6 +27,7 @@ from apps.tenants.music.serializers import (
     SongRequestSerializer,
 )
 from apps.tenants.music.youtube import is_embeddable, related_videos, search_youtube
+from apps.tenants.music.utils import is_recently_played
 from apps.tenants.tables.models import Table
 
 # Estados de la cola considerados activos (esperando o reproduciendo).
@@ -177,6 +178,18 @@ class ClientRequestView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # No repetir canciones: si ya sonó en las últimas 2 horas, se rechaza.
+            if is_recently_played(youtube_id):
+                return Response(
+                    {
+                        "detail": (
+                            "Esta canción ya sonó hace poco. "
+                            "Intenta de nuevo en un rato."
+                        )
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+
             # Límite de peticiones por hora por mesa.
             one_hour_ago = timezone.now() - timedelta(hours=1)
             recent = SongRequest.objects.filter(
@@ -284,10 +297,10 @@ class ClientAutoDJView(APIView):
                     return Response(_tv_snapshot(tenant))
                 results = related_videos(seed, limit=15)
 
-            known = set(PlaylistItem.objects.values_list("youtube_id", flat=True))
+            # Evita repetir canciones que sonaron en las últimas 2 horas.
             candidates = [
                 r for r in results
-                if r["youtube_id"] not in known and is_embeddable(r["youtube_id"])
+                if not is_recently_played(r["youtube_id"]) and is_embeddable(r["youtube_id"])
             ]
             if not candidates:
                 return Response(_tv_snapshot(tenant))
