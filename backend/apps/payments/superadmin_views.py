@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from apps.core.models import PlanPrice, Tenant
 from apps.payments.models import Expense, Payment
 from apps.payments.serializers import (
+    AdminTenantCreateSerializer,
     AdminTenantSerializer,
     ExpenseSerializer,
     PaymentSerializer,
@@ -114,19 +115,40 @@ class SummaryView(APIView):
         )
 
 
-class AdminTenantListView(generics.ListAPIView):
-    """Lista todos los bares (tenants) del sistema."""
+class AdminTenantListView(generics.ListCreateAPIView):
+    """Lista todos los bares (tenants) del sistema y permite crear manualmente.
+
+    La creación manual es para el flujo de pago en efectivo: el socio o el
+    superadmin registran el bar y, opcionalmente, el pago inicial que lo activa.
+    """
 
     permission_classes = [IsMusicFlowStaff]
-    serializer_class = AdminTenantSerializer
-    queryset = Tenant.objects.all().order_by("name")
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = Tenant.objects.all().order_by("name")
         status_filter = self.request.query_params.get("status")
         if status_filter:
             qs = qs.filter(subscription_status=status_filter)
         return qs
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return AdminTenantCreateSerializer
+        return AdminTenantSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+
+        tenant = result["tenant"]
+        response = AdminTenantSerializer(tenant, context={"request": request}).data
+        # Expone la contraseña generada (si no se indicó) solo en la respuesta de
+        # creación, para que el socio se la entregue al dueño del bar.
+        if result.get("owner_password"):
+            response["owner_password"] = result["owner_password"]
+        response["payment_registered"] = result["payment"] is not None
+        return Response(response, status=status.HTTP_201_CREATED)
 
 
 class AdminTenantDetailView(generics.RetrieveUpdateAPIView):

@@ -143,32 +143,35 @@ export default function App() {
       )}
 
       {tab === 'bares' && (
-        <div className="glass panel">
-          <h2>Bares ({tenants.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Plan</th>
-                <th>Estado</th>
-                <th>Próxima facturación</th>
-                <th>Último pago</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tenants.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.name}</td>
-                  <td>{t.plan}</td>
-                  <td>
-                    <StatusBadge status={t.subscription_status} />
-                  </td>
-                  <td>{t.next_billing_date ?? '—'}</td>
-                  <td>{t.last_payment ? new Date(t.last_payment).toLocaleDateString('es-CO') : '—'}</td>
+        <div style={{ display: 'grid', gap: 16 }}>
+          <CreateBarForm onDone={load} />
+          <div className="glass panel">
+            <h2>Bares ({tenants.length})</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Plan</th>
+                  <th>Estado</th>
+                  <th>Próxima facturación</th>
+                  <th>Último pago</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tenants.map((t) => (
+                  <tr key={t.id}>
+                    <td>{t.name}</td>
+                    <td>{t.plan}</td>
+                    <td>
+                      <StatusBadge status={t.subscription_status} />
+                    </td>
+                    <td>{t.next_billing_date ?? '—'}</td>
+                    <td>{t.last_payment ? new Date(t.last_payment).toLocaleDateString('es-CO') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -335,6 +338,154 @@ function PaymentForm({ tenants, onDone }: { tenants: AdminTenant[]; onDone: () =
       {msg && <p className={`msg ${msg.ok ? 'ok' : 'err'}`}>{msg.text}</p>}
       <button className="btn" style={{ marginTop: 12 }}>
         Registrar cobro
+      </button>
+    </form>
+  )
+}
+
+function CreateBarForm({ onDone }: { onDone: () => void }) {
+  const [name, setName] = useState('')
+  const [ownerEmail, setOwnerEmail] = useState('')
+  const [ownerPassword, setOwnerPassword] = useState('')
+  const [phone, setPhone] = useState('')
+  const [plan, setPlan] = useState('pro')
+  const [genre, setGenre] = useState('crossover')
+  const [withPayment, setWithPayment] = useState(true)
+  const [amount, setAmount] = useState('60000')
+  const [method, setMethod] = useState('cash')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [created, setCreated] = useState<{ name: string; password: string } | null>(null)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    setMsg(null)
+    setCreated(null)
+    try {
+      const data = await api<{ name: string; owner_password?: string; payment_registered: boolean }>(
+        '/admin/tenants/',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            name,
+            owner_email: ownerEmail,
+            owner_password: ownerPassword || undefined,
+            phone,
+            plan,
+            genre,
+            initial_amount: withPayment ? Number(amount) : null,
+            initial_method: method,
+          }),
+        },
+      )
+      setCreated({ name: data.name, password: data.owner_password ?? ownerPassword })
+      setMsg({
+        ok: true,
+        text: `✓ Bar "${data.name}" creado${data.payment_registered ? ' y activado' : ''}`,
+      })
+      setName('')
+      setOwnerEmail('')
+      setOwnerPassword('')
+      setPhone('')
+      onDone()
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : 'Error' })
+    }
+  }
+
+  return (
+    <form className="glass panel" onSubmit={submit}>
+      <h2>Crear bar manualmente</h2>
+      <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
+        Para el flujo de pago en efectivo mano a mano: registras el bar y, si cobras
+        ahora, queda activo al instante.
+      </p>
+
+      <div className="row">
+        <div>
+          <label>Nombre del bar</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div>
+          <label>Email del dueño</label>
+          <input value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} type="email" required />
+        </div>
+      </div>
+
+      <div className="row" style={{ marginTop: 8 }}>
+        <div>
+          <label>Contraseña del dueño (opcional)</label>
+          <input
+            value={ownerPassword}
+            onChange={(e) => setOwnerPassword(e.target.value)}
+            type="password"
+            placeholder="Se genera automáticamente si vacío"
+          />
+        </div>
+        <div>
+          <label>Teléfono</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="row" style={{ marginTop: 8 }}>
+        <div>
+          <label>Plan</label>
+          <select value={plan} onChange={(e) => setPlan(e.target.value)}>
+            <option value="pro">Pro — $60.000</option>
+            <option value="premium">Premium — $120.000</option>
+          </select>
+        </div>
+        <div>
+          <label>Género</label>
+          <select value={genre} onChange={(e) => setGenre(e.target.value)}>
+            <option value="crossover">Variado</option>
+            <option value="vallenato">Vallenato</option>
+            <option value="reggaeton">Reggaetón</option>
+            <option value="salsa">Salsa</option>
+            <option value="cumbia">Cumbia</option>
+            <option value="ranchera">Ranchera</option>
+            <option value="pop_latino">Pop latino</option>
+            <option value="rock_espanol">Rock en español</option>
+            <option value="electronica">Electrónica</option>
+          </select>
+        </div>
+      </div>
+
+      <label style={{ marginTop: 12 }}>
+        <input
+          type="checkbox"
+          checked={withPayment}
+          onChange={(e) => setWithPayment(e.target.checked)}
+          style={{ width: 'auto', marginRight: 8 }}
+        />
+        Registrar pago en efectivo ahora y activar el bar
+      </label>
+
+      {withPayment && (
+        <div className="row" style={{ marginTop: 8 }}>
+          <div>
+            <label>Monto (COP)</label>
+            <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" />
+          </div>
+          <div>
+            <label>Método</label>
+            <select value={method} onChange={(e) => setMethod(e.target.value)}>
+              <option value="cash">Efectivo</option>
+              <option value="transfer">Transferencia</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {msg && <p className={`msg ${msg.ok ? 'ok' : 'err'}`}>{msg.text}</p>}
+      {created && (
+        <div className="msg ok" style={{ marginTop: 8 }}>
+          Acceso del dueño: {created.name} — contraseña: <b>{created.password || 'la que definiste'}</b>
+        </div>
+      )}
+
+      <button className="btn" style={{ marginTop: 12 }}>
+        Crear bar
       </button>
     </form>
   )
