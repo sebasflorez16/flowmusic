@@ -64,9 +64,12 @@ class SessionTokenRefreshSerializer(TokenRefreshSerializer):
 class LoginView(APIView):
     """Inicia sesión con email/contraseña y devuelve JWT + tenant.
 
-    Endpoint público: cualquier persona puede intentar autenticarse.
+    Endpoint público: cualquier persona puede intentar autenticarse. No ejecuta
+    autenticación JWT (el navegador podría traer un token viejo en el header y
+    eso no debe bloquear el login).
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -96,6 +99,7 @@ class RegisterView(APIView):
     pago en Wompi (fase posterior).
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -121,6 +125,7 @@ class RegisterView(APIView):
 class SessionTokenRefreshView(APIView):
     """Refresca el access token validando que la sesión siga activa."""
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):

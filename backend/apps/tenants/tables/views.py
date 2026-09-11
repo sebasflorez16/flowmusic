@@ -103,6 +103,7 @@ class TableQRView(APIView):
     entre despliegues: el QR impreso por el dueño sigue funcionando siempre.
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, slug, qr_hash):

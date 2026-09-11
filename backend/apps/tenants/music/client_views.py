@@ -83,6 +83,7 @@ class ClientSearchView(APIView):
     resultados se cachean para reducir llamadas a la API externa.
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
     CACHE_TTL = 1800  # 30 minutos
 
@@ -108,6 +109,7 @@ class ClientTableDetailView(APIView):
     Incluye el nombre del bar, número de mesa, canción actual, cola y catálogo.
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, slug, qr_hash):
@@ -151,6 +153,7 @@ class ClientRequestView(APIView):
     Valida el límite de peticiones por hora por mesa configurado en el tenant.
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, slug):
@@ -238,6 +241,7 @@ class ClientTVView(APIView):
     pantalla. Público por slug (la TV del bar no requiere login en el demo).
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, slug):
@@ -270,6 +274,7 @@ class ClientAutoDJView(APIView):
     (p. ej. vallenato en un bar de vallenato) en vez de música aleatoria.
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, slug):
@@ -380,6 +385,7 @@ class ClientPlayingView(APIView):
     y se recalculan posiciones y tiempos estimados de las restantes.
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, slug, pk):
@@ -432,6 +438,7 @@ class ClientMarkPlayedView(APIView):
     siguiente. Así el backend deja la cola vacía y el AutoDJ puede continuar.
     """
 
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, slug, pk):
