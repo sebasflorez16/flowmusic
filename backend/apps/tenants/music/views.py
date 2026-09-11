@@ -397,3 +397,70 @@ class PlaylistEnqueueView(APIView):
         if slug:
             emit_queue_updated(slug, _queue_snapshot())
         return Response(_queue_snapshot(), status=status.HTTP_201_CREATED)
+
+
+class PlayYouTubeView(APIView):
+    """Reproduce un video de YouTube de inmediato (desde el buscador del dueño).
+
+    Acepta ``youtube_id`` (o ``url``) con metadatos opcionales. Crea/obtiene el
+    ``PlaylistItem`` y lo pone a sonar ahora, marcando la canción anterior como
+    reproducida.
+    """
+
+    def post(self, request):
+        """Pone a sonar un video de YouTube (creándolo en el catálogo si no existe)."""
+        raw = request.data.get("youtube_id") or request.data.get("url")
+        try:
+            youtube_id = extract_youtube_id(raw or "")
+        except ValidationError as exc:
+            return Response({"detail": str(exc.detail[0])}, status=status.HTTP_400_BAD_REQUEST)
+
+        title = request.data.get("title", "")
+        artist = request.data.get("artist", "")
+        if not title:
+            title, author = fetch_youtube_metadata(youtube_id)
+            artist = artist or author
+
+        duration = request.data.get("duration_seconds", 0) or 0
+        thumbnail = request.data.get("thumbnail_url") or f"https://i.ytimg.com/vi/{youtube_id}/hqdefault.jpg"
+
+        playlist_item, _ = PlaylistItem.objects.get_or_create(
+            youtube_id=youtube_id,
+            defaults={
+                "title": title,
+                "artist": artist,
+                "duration_seconds": duration,
+                "thumbnail_url": thumbnail,
+            },
+        )
+        if not playlist_item.duration_seconds and duration:
+            playlist_item.duration_seconds = duration
+            playlist_item.save(update_fields=["duration_seconds"])
+
+        QueueItem.objects.filter(status=QueueItem.Status.PLAYING).update(
+            status=QueueItem.Status.PLAYED, played_at=timezone.now()
+        )
+
+        QueueItem.objects.create(
+            playlist_item=playlist_item,
+            requested_by="Dueño",
+            status=QueueItem.Status.PLAYING,
+            position=1,
+            estimated_wait_seconds=0,
+            started_at=timezone.now(),
+        )
+        playlist_item.play_count += 1
+        playlist_item.save(update_fields=["play_count"])
+
+        remaining = list(
+            QueueItem.objects.filter(status=QueueItem.Status.APPROVED).order_by("position")
+        )
+        for idx, q in enumerate(remaining, start=2):
+            q.position = idx
+            q.estimated_wait_seconds = compute_estimated_wait(remaining[: idx - 1])
+            q.save(update_fields=["position", "estimated_wait_seconds"])
+
+        slug = getattr(getattr(request, "tenant", None), "slug", None)
+        if slug:
+            emit_queue_updated(slug, _queue_snapshot())
+        return Response(_queue_snapshot(), status=status.HTTP_201_CREATED)

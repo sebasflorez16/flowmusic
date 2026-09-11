@@ -285,15 +285,16 @@ class ClientAutoDJView(APIView):
             return Response({"detail": "Bar no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
         with schema_context(tenant.schema_name):
-            # Si ya hay cola activa, no hace falta generar nada.
-            if QueueItem.objects.filter(status__in=ACTIVE_STATUSES).exists():
-                return Response(_tv_snapshot(tenant))
-
             if not tenant.autodj_enabled:
                 return Response(_tv_snapshot(tenant))
 
+            # Si hay canciones en espera (approved), la cola sigue viva: no
+            # generamos nada. La TV se encargará de reproducirlas.
+            if QueueItem.objects.filter(status=QueueItem.Status.APPROVED).exists():
+                return Response(_tv_snapshot(tenant))
+
             # Marca cualquier canción "sonando" residual como reproducida para
-            # evitar duplicados de estado.
+            # evitar duplicados de estado (fin de cola).
             QueueItem.objects.filter(status=QueueItem.Status.PLAYING).update(
                 status=QueueItem.Status.PLAYED, played_at=timezone.now()
             )

@@ -83,6 +83,7 @@ export function TVScreen() {
     autodjRef.current = true
     void api<TVSnapshot>(`/client/${slug}/autodj/`, { method: 'POST' })
       .then((generated) => {
+        autodjRef.current = false
         setSnapshot(generated)
         if (generated.playing) {
           currentIdRef.current = generated.playing.id

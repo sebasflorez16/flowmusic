@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Play, Plus } from 'lucide-react'
 
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
-import type { PlaylistItem } from '@/lib/types'
+import type { PlaylistItem, YouTubeResult } from '@/lib/types'
 import { useQueue } from '@/stores/queue'
 
 /**
@@ -24,6 +24,12 @@ export function PlaylistPage() {
   const [adding, setAdding] = useState(false)
   const enqueuePlaylist = useQueue((s) => s.enqueuePlaylist)
 
+  // Búsqueda en YouTube (Innertube) con debounce.
+  const [results, setResults] = useState<YouTubeResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [playingId, setPlayingId] = useState<string | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const fetchItems = useCallback(async () => {
     try {
       setItems(await api<PlaylistItem[]>('/music/playlist/'))
@@ -35,6 +41,29 @@ export function PlaylistPage() {
   useEffect(() => {
     void fetchItems()
   }, [fetchItems])
+
+  // Búsqueda en YouTube con debounce de 400ms.
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setResults([])
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        setResults(await api<YouTubeResult[]>(`/client/search/?q=${encodeURIComponent(q)}`))
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 400)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [query])
 
   /** Agrega una canción a partir de una URL o ID de YouTube. */
   const handleAdd = async () => {
@@ -54,6 +83,22 @@ export function PlaylistPage() {
       setError(err instanceof Error ? err.message : 'No se pudo agregar la canción')
     } finally {
       setAdding(false)
+    }
+  }
+
+  /** Reproduce un resultado de YouTube de inmediato. */
+  const playYouTube = async (item: YouTubeResult) => {
+    setPlayingId(item.youtube_id)
+    try {
+      await api('/music/play-youtube/', {
+        method: 'POST',
+        body: JSON.stringify(item),
+      })
+      await fetchItems()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo reproducir')
+    } finally {
+      setPlayingId(null)
     }
   }
 
@@ -82,6 +127,57 @@ export function PlaylistPage() {
           </Button>
         </CardContent>
         {error && <CardContent className="pt-0 text-sm text-destructive">{error}</CardContent>}
+      </Card>
+
+      {/* Buscar en YouTube */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Buscar en YouTube y reproducir</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Busca una canción o artista para ponerla ahora…"
+            className="mb-4"
+          />
+
+          {searching && (
+            <p className="mb-2 text-sm text-muted-foreground">Buscando…</p>
+          )}
+
+          {query.trim() && !searching && results.length > 0 && (
+            <ul className="space-y-2">
+              {results.map((item) => (
+                <li key={item.youtube_id} className="glass flex items-center gap-3 rounded-lg p-3">
+                  <img
+                    src={item.thumbnail_url}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{item.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{item.artist}</p>
+                  </div>
+                  <Button
+                    variant="default"
+                    size="icon"
+                    onClick={() => void playYouTube(item)}
+                    disabled={playingId === item.youtube_id}
+                    aria-label="Reproducir ahora"
+                    title="Reproducir ahora"
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {query.trim() && !searching && results.length === 0 && (
+            <p className="text-sm text-muted-foreground">Sin resultados. Prueba otra búsqueda.</p>
+          )}
+        </CardContent>
       </Card>
 
       {/* Catálogo */}

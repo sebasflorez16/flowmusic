@@ -46,6 +46,15 @@ export interface PlaylistItem {
   created_at: string
 }
 
+/** Resultado de búsqueda en YouTube. */
+export interface YouTubeResult {
+  youtube_id: string
+  title: string
+  artist: string
+  duration_seconds: number
+  thumbnail_url: string
+}
+
 /** Estado de un ítem en la cola de reproducción. */
 export type QueueItemStatus =
   | 'pending'
