@@ -58,7 +58,26 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers })
+  // Timeout de red: si el backend no responde en 20s, se falla en vez de
+  // dejar el botón "Ingresando…" colgado indefinidamente.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 20000)
+
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    clearTimeout(timer)
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError('El servidor tardó demasiado. Intenta de nuevo.', 0)
+    }
+    throw new ApiError('No se pudo conectar con el servidor.', 0)
+  }
+  clearTimeout(timer)
 
   if (response.status === 401) {
     // Intento único de refrescar el token antes de fallar.
