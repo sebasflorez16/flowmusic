@@ -33,6 +33,12 @@ from apps.tenants.tables.models import Table
 # Estados de la cola considerados activos (esperando o reproduciendo).
 ACTIVE_STATUSES = ("approved", "playing")
 
+# Duración aceptable para el AutoDJ: canciones normales, no compilaciones/mixes.
+# Se descartan videos de más de 10 minutos (mosaicos, "1 hora de...", mixes) y
+# menores de 90 segundos (shorts/intros). Así el bar siempre suena con canciones.
+MIN_AUTODJ_DURATION = 90
+MAX_AUTODJ_DURATION = 600
+
 # Consulta de búsqueda por género para el AutoDJ (música acorde al estilo del bar).
 GENRE_QUERIES = {
     "vallenato": "vallenato exitos",
@@ -42,9 +48,19 @@ GENRE_QUERIES = {
     "ranchera": "rancheras exitos",
     "pop_latino": "pop latino exitos",
     "rock_espanol": "rock en español exitos",
-    "electronica": "electronica mix",
+    "electronica": "electronica exitos",
     "crossover": "exitos musica variada",
 }
+
+
+def _is_normal_song(result: dict) -> bool:
+    """Indica si un resultado es una canción normal (duración razonable).
+
+    Los resultados sin duración confiable (``duration_seconds <= 0``) se
+    descartan para no arriesgar un mix de horas.
+    """
+    duration = result.get("duration_seconds", 0) or 0
+    return MIN_AUTODJ_DURATION <= duration <= MAX_AUTODJ_DURATION
 
 
 def _tv_snapshot(tenant) -> dict:
@@ -280,8 +296,19 @@ class ClientAutoDJView(APIView):
             # Busca música acorde al género registrado del bar. Si no hay
             # género definido, cae a los relacionados de la última canción.
             query = GENRE_QUERIES.get(tenant.genre)
+            # Queries de respaldo por si el primero devuelve solo mixes/mosaicos:
+            # el AutoDJ nunca debe quedarse en silencio.
+            fallback_queries = ["exitos del momento", "canciones populares 2025"]
+
+            candidates: list[dict] = []
             if query:
-                results = search_youtube(query, limit=15)
+                results = search_youtube(query, limit=20)
+                candidates = [
+                    r for r in results
+                    if _is_normal_song(r)
+                    and not is_recently_played(r["youtube_id"])
+                    and is_embeddable(r["youtube_id"])
+                ]
             else:
                 last_played = (
                     QueueItem.objects.filter(status=QueueItem.Status.PLAYED)
@@ -293,15 +320,26 @@ class ClientAutoDJView(APIView):
                 seed = last_played or PlaylistItem.objects.values_list(
                     "youtube_id", flat=True
                 ).first()
-                if not seed:
-                    return Response(_tv_snapshot(tenant))
-                results = related_videos(seed, limit=15)
+                if seed:
+                    candidates = [
+                        r for r in related_videos(seed, limit=20)
+                        if _is_normal_song(r)
+                        and not is_recently_played(r["youtube_id"])
+                        and is_embeddable(r["youtube_id"])
+                    ]
 
-            # Evita repetir canciones que sonaron en las últimas 2 horas.
-            candidates = [
-                r for r in results
-                if not is_recently_played(r["youtube_id"]) and is_embeddable(r["youtube_id"])
-            ]
+            # Si el género no dio candidatos válidos, probamos queries genéricos.
+            for fb in fallback_queries:
+                if candidates:
+                    break
+                results = search_youtube(fb, limit=20)
+                candidates = [
+                    r for r in results
+                    if _is_normal_song(r)
+                    and not is_recently_played(r["youtube_id"])
+                    and is_embeddable(r["youtube_id"])
+                ]
+
             if not candidates:
                 return Response(_tv_snapshot(tenant))
 
@@ -312,9 +350,17 @@ class ClientAutoDJView(APIView):
                 defaults={
                     "title": pick["title"],
                     "artist": pick["artist"],
+                    "duration_seconds": pick.get("duration_seconds", 0) or 0,
                     "thumbnail_url": pick["thumbnail_url"],
                 },
             )
+            # Si la canción ya existía pero sin duración (creada por una petición
+            # del cliente que no traía duración), la completamos ahora para que
+            # la TV corte exactamente cuando termina.
+            if not playlist_item.duration_seconds and (pick.get("duration_seconds") or 0):
+                playlist_item.duration_seconds = pick["duration_seconds"]
+                playlist_item.save(update_fields=["duration_seconds"])
+
             QueueItem.objects.create(
                 playlist_item=playlist_item,
                 requested_by="AutoDJ",

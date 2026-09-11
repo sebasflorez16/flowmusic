@@ -102,7 +102,7 @@ class Tenant(TenantMixin):
         "límite de peticiones por mesa por hora", default=2
     )
     crossfade_enabled = models.BooleanField("crossfade activado", default=False)
-    autodj_enabled = models.BooleanField("AutoDJ activado", default=False)
+    autodj_enabled = models.BooleanField("AutoDJ activado", default=True)
     genre = models.CharField(
         "género musical",
         max_length=20,
