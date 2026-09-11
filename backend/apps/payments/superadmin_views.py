@@ -18,6 +18,7 @@ from apps.payments.models import Expense, Payment
 from apps.payments.serializers import (
     AdminTenantCreateSerializer,
     AdminTenantSerializer,
+    AdminTenantUpdateSerializer,
     ExpenseSerializer,
     PaymentSerializer,
     PlanPriceSerializer,
@@ -152,11 +153,15 @@ class AdminTenantListView(generics.ListCreateAPIView):
 
 
 class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
-    """Detalle de un bar: activar plan, cambiar estado o suspender."""
+    """Detalle de un bar: cambiar plan, mesas o estado de suscripción."""
 
     permission_classes = [IsMusicFlowStaff]
-    serializer_class = AdminTenantSerializer
     queryset = Tenant.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return AdminTenantUpdateSerializer
+        return AdminTenantSerializer
 
 
 class PaymentListCreateView(generics.ListCreateAPIView):

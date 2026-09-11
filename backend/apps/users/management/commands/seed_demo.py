@@ -51,10 +51,21 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f"Socio ya existe: {socio_email}")
 
-        # --- Precios de planes ------------------------------------------------
-        for plan, price in (("pro", "60000"), ("premium", "120000")):
-            PlanPrice.objects.get_or_create(
-                plan=plan, defaults={"monthly_price": price, "is_active": True}
+        # --- Precios de planes (mesas incluidas + precio por mesa extra) -------
+        plans = [
+            ("pro", "60000", 8, "10000"),
+            ("plus", "90000", 12, "10000"),
+            ("premium", "120000", 16, "10000"),
+        ]
+        for plan, price, included, extra in plans:
+            PlanPrice.objects.update_or_create(
+                plan=plan,
+                defaults={
+                    "monthly_price": price,
+                    "included_tables": included,
+                    "extra_table_price": extra,
+                    "is_active": True,
+                },
             )
 
         # --- Bar de ejemplo (tenant + dueño + mesas + canciones) ---------------

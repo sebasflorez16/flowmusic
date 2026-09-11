@@ -22,9 +22,15 @@ class Tenant(TenantMixin):
     """
 
     class Plan(models.TextChoices):
-        """Planes de suscripción disponibles."""
+        """Planes de suscripción disponibles.
+
+        Todos incluyen un número base de mesas; por cada mesa adicional se cobra
+        un precio extra (ver ``PlanPrice.extra_table_price``). El mínimo son 8
+        mesas (no se venden bares de menos mesas).
+        """
 
         PRO = "pro", "Pro"
+        PLUS = "plus", "Plus"
         PREMIUM = "premium", "Premium"
 
     class SubscriptionStatus(models.TextChoices):
@@ -87,6 +93,11 @@ class Tenant(TenantMixin):
 
     # --- Configuración del negocio -------------------------------------------
     max_tables = models.PositiveIntegerField("número máximo de mesas", default=8)
+    included_tables = models.PositiveIntegerField(
+        "mesas incluidas en el plan",
+        default=8,
+        help_text="Mesas cubiertas por el precio base del plan. Las mesas por encima de este número se cobran aparte.",
+    )
     requests_per_hour_limit = models.PositiveIntegerField(
         "límite de peticiones por mesa por hora", default=2
     )
@@ -125,6 +136,28 @@ class Tenant(TenantMixin):
         """Indica si el tenant tiene acceso activo a la plataforma."""
         return self.subscription_status == self.SubscriptionStatus.ACTIVE
 
+    @property
+    def monthly_total(self):
+        """Precio mensual total = precio base del plan + mesas extra.
+
+        Las mesas por encima de ``included_tables`` se cobran al precio por mesa
+        adicional definido en ``PlanPrice``. El mínimo de mesas es 8 (incluidas).
+        """
+        price = PlanPrice.objects.filter(plan=self.plan, is_active=True).first()
+        if price is None:
+            return 0
+        base = price.monthly_price
+        extra = max(0, self.max_tables - price.included_tables)
+        return base + (extra * price.extra_table_price)
+
+    @property
+    def extra_tables(self):
+        """Número de mesas adicionales (por encima de las incluidas)."""
+        price = PlanPrice.objects.filter(plan=self.plan, is_active=True).first()
+        if price is None:
+            return 0
+        return max(0, self.max_tables - price.included_tables)
+
 
 class Domain(DomainMixin):
     """Relación entre un subdominio y su tenant.
@@ -145,14 +178,19 @@ class Domain(DomainMixin):
 class PlanPrice(models.Model):
     """Precio mensual de cada plan (fuente de verdad para el cobro).
 
-    Centraliza el precio para que el cálculo financiero sea automático y
-    coherente con la realidad (ej. Pro $60.000 COP).
+    Centraliza el precio base del plan, el número de mesas incluidas y el precio
+    por cada mesa adicional, para que el cálculo financiero sea automático y
+    coherente (ej. Pro $60.000 COP con 8 mesas incluidas, +$10.000 por mesa extra).
     """
 
     plan = models.CharField(
         "plan", max_length=20, choices=Tenant.Plan.choices, unique=True
     )
     monthly_price = models.DecimalField("precio mensual (COP)", max_digits=12, decimal_places=2)
+    included_tables = models.PositiveIntegerField("mesas incluidas", default=8)
+    extra_table_price = models.DecimalField(
+        "precio por mesa adicional (COP)", max_digits=12, decimal_places=2, default=10000
+    )
     is_active = models.BooleanField("vigente", default=True)
 
     class Meta:

@@ -21,7 +21,14 @@ class PlanPriceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PlanPrice
-        fields = ("id", "plan", "monthly_price", "is_active")
+        fields = (
+            "id",
+            "plan",
+            "monthly_price",
+            "included_tables",
+            "extra_table_price",
+            "is_active",
+        )
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -85,6 +92,42 @@ class AdminTenantSerializer(TenantSerializer):
         return last.paid_at if last else None
 
 
+class AdminTenantUpdateSerializer(serializers.ModelSerializer):
+    """Campos que el superadmin/socio puede editar de un bar (detalle).
+
+    Permite cambiar plan, número de mesas (mínimo 8) y estado de suscripción.
+    El precio mensual se recalcula automáticamente según las mesas extra.
+    """
+
+    class Meta:
+        model = Tenant
+        fields = (
+            "plan",
+            "max_tables",
+            "subscription_status",
+            "next_billing_date",
+        )
+
+    def validate_max_tables(self, value):
+        if value < 8:
+            raise serializers.ValidationError("El mínimo son 8 mesas.")
+        return value
+
+    def update(self, instance, validated_data):
+        # Si cambia el plan, se reajusta el número de mesas incluidas al plan.
+        new_plan = validated_data.get("plan", instance.plan)
+        if new_plan != instance.plan:
+            price = PlanPrice.objects.filter(plan=new_plan, is_active=True).first()
+            if price:
+                instance.included_tables = price.included_tables
+                # Si el bar tenía menos mesas que las incluidas del plan nuevo,
+                # se sube al mínimo del plan.
+                if validated_data.get("max_tables", instance.max_tables) < price.included_tables:
+                    validated_data["max_tables"] = price.included_tables
+
+        return super().update(instance, validated_data)
+
+
 class AdminTenantCreateSerializer(serializers.Serializer):
     """Crea un bar manualmente desde el panel del superadmin/socio.
 
@@ -101,6 +144,9 @@ class AdminTenantCreateSerializer(serializers.Serializer):
     genre = serializers.ChoiceField(
         choices=Tenant.Genre.choices, required=False, default=Tenant.Genre.CROSSOVER
     )
+    # Número de mesas que habilita el superadmin/socio. Mínimo 8 (incluidas en
+    # el plan); las mesas extra se cobran aparte (PlanPrice.extra_table_price).
+    max_tables = serializers.IntegerField(required=False, min_value=8)
     # Pago inicial opcional (efectivo/transferencia) para activar el bar de una vez.
     initial_amount = serializers.DecimalField(
         required=False, max_digits=12, decimal_places=2, allow_null=True
@@ -117,6 +163,11 @@ class AdminTenantCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Ya existe un usuario con ese email.")
         return email
 
+    def validate_max_tables(self, value):
+        if value is not None and value < 8:
+            raise serializers.ValidationError("El mínimo son 8 mesas.")
+        return value
+
     def create(self, validated_data):
         email = validated_data["owner_email"]
         password = validated_data.get("owner_password") or User.objects.make_random_password()
@@ -131,6 +182,11 @@ class AdminTenantCreateSerializer(serializers.Serializer):
             slug = f"{base_slug[: 63 - len(suffix)]}{suffix}"
             counter += 1
 
+        plan = validated_data.get("plan", Tenant.Plan.PRO)
+        plan_price = PlanPrice.objects.filter(plan=plan, is_active=True).first()
+        included = plan_price.included_tables if plan_price else 8
+        max_tables = validated_data.get("max_tables") or included
+
         # 1. Usuario dueño del bar.
         user = User.objects.create_user(username=email, email=email, password=password)
 
@@ -142,9 +198,11 @@ class AdminTenantCreateSerializer(serializers.Serializer):
             owner_email=email,
             phone=validated_data.get("phone", ""),
             address=validated_data.get("address", ""),
-            plan=validated_data.get("plan", Tenant.Plan.PRO),
+            plan=plan,
             subscription_status=Tenant.SubscriptionStatus.TRIALING,
             genre=validated_data.get("genre", Tenant.Genre.CROSSOVER),
+            max_tables=max_tables,
+            included_tables=included,
         )
         call_command("migrate_schemas", schema_name=tenant.schema_name, interactive=False, verbosity=0)
 

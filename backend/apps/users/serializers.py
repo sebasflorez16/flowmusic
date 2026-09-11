@@ -43,6 +43,9 @@ def issue_tokens_for_user(user):
 class TenantSerializer(serializers.ModelSerializer):
     """Serializa los datos del tenant (bar) que se envían al frontend."""
 
+    monthly_total = serializers.SerializerMethodField()
+    extra_tables = serializers.SerializerMethodField()
+
     class Meta:
         model = Tenant
         fields = (
@@ -56,11 +59,48 @@ class TenantSerializer(serializers.ModelSerializer):
             "plan",
             "subscription_status",
             "max_tables",
+            "included_tables",
+            "requests_per_hour_limit",
+            "crossfade_enabled",
+            "autodj_enabled",
+            "genre",
+            "monthly_total",
+            "extra_tables",
+        )
+
+    def get_monthly_total(self, obj):
+        """Precio mensual total (base + mesas extra)."""
+        return str(obj.monthly_total)
+
+    def get_extra_tables(self, obj):
+        """Mesas adicionales por encima de las incluidas."""
+        return obj.extra_tables
+
+
+class TenantSettingsSerializer(serializers.ModelSerializer):
+    """Serializa los campos editables de la configuración del bar.
+
+    Solo permite editar datos del negocio y de reproducción. El plan, el número
+    máximo de mesas y el estado de suscripción se gestionan desde el superadmin.
+    """
+
+    class Meta:
+        model = Tenant
+        fields = (
+            "name",
+            "phone",
+            "address",
+            "logo_url",
             "requests_per_hour_limit",
             "crossfade_enabled",
             "autodj_enabled",
             "genre",
         )
+
+    def validate_requests_per_hour_limit(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Debe ser al menos 1.")
+        return value
 
 
 class LoginSerializer(serializers.Serializer):

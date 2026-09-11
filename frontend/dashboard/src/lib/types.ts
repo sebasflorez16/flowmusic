@@ -9,7 +9,7 @@
 export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled'
 
 /** Planes disponibles. */
-export type Plan = 'pro' | 'premium'
+export type Plan = 'pro' | 'plus' | 'premium'
 
 /** Géneros musicales del bar (usados por el AutoDJ). */
 export type Genre =
@@ -117,10 +117,13 @@ export interface Tenant {
   plan: Plan
   subscription_status: SubscriptionStatus
   max_tables: number
+  included_tables: number
   requests_per_hour_limit: number
   crossfade_enabled: boolean
   autodj_enabled: boolean
   genre: Genre
+  monthly_total: string
+  extra_tables: number
 }
 
 /** Estadísticas agregadas para el dashboard. */

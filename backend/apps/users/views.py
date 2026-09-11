@@ -18,6 +18,7 @@ from apps.users.serializers import (
     LoginSerializer,
     RegisterSerializer,
     TenantSerializer,
+    TenantSettingsSerializer,
     issue_tokens_for_user,
 )
 
@@ -126,3 +127,39 @@ class SessionTokenRefreshView(APIView):
         serializer = SessionTokenRefreshSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+class TenantSettingsView(APIView):
+    """Lee y actualiza la configuración del bar del dueño autenticado.
+
+    El tenant viene resuelto por ``TenantJWTAuthentication`` (``request.tenant``).
+    Solo el dueño del bar (rol ``owner``) tiene tenant asociado; superadmin y
+    socio no acceden a esta vista.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Devuelve la configuración actual del tenant."""
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "No tienes un bar asociado."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(TenantSerializer(tenant).data)
+
+    def patch(self, request):
+        """Actualiza los campos editables de la configuración del bar."""
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "No tienes un bar asociado."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = TenantSettingsSerializer(tenant, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(TenantSerializer(tenant).data)

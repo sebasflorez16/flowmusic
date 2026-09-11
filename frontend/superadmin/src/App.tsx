@@ -349,12 +349,25 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
   const [ownerPassword, setOwnerPassword] = useState('')
   const [phone, setPhone] = useState('')
   const [plan, setPlan] = useState('pro')
+  const [maxTables, setMaxTables] = useState('8')
   const [genre, setGenre] = useState('crossover')
   const [withPayment, setWithPayment] = useState(true)
   const [amount, setAmount] = useState('60000')
   const [method, setMethod] = useState('cash')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [created, setCreated] = useState<{ name: string; password: string } | null>(null)
+
+  // Mesas incluidas y precio base por plan (sincronizado con el backend).
+  const PLAN_INFO: Record<string, { included: number; base: number }> = {
+    pro: { included: 8, base: 60000 },
+    plus: { included: 12, base: 90000 },
+    premium: { included: 16, base: 120000 },
+  }
+  const EXTRA_TABLE_PRICE = 10000
+  const planInfo = PLAN_INFO[plan] ?? PLAN_INFO.pro
+  const tables = Math.max(planInfo.included, Number(maxTables) || planInfo.included)
+  const extra = Math.max(0, tables - planInfo.included)
+  const computedAmount = planInfo.base + extra * EXTRA_TABLE_PRICE
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -372,7 +385,8 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
             phone,
             plan,
             genre,
-            initial_amount: withPayment ? Number(amount) : null,
+            max_tables: tables,
+            initial_amount: withPayment ? computedAmount : null,
             initial_method: method,
           }),
         },
@@ -386,6 +400,7 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
       setOwnerEmail('')
       setOwnerPassword('')
       setPhone('')
+      setMaxTables('8')
       onDone()
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : 'Error' })
@@ -397,7 +412,7 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
       <h2>Crear bar manualmente</h2>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
         Para el flujo de pago en efectivo mano a mano: registras el bar y, si cobras
-        ahora, queda activo al instante.
+        ahora, queda activo al instante. El mínimo son 8 mesas.
       </p>
 
       <div className="row">
@@ -431,10 +446,23 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
         <div>
           <label>Plan</label>
           <select value={plan} onChange={(e) => setPlan(e.target.value)}>
-            <option value="pro">Pro — $60.000</option>
-            <option value="premium">Premium — $120.000</option>
+            <option value="pro">Pro — 8 mesas · $60.000</option>
+            <option value="plus">Plus — 12 mesas · $90.000</option>
+            <option value="premium">Premium — 16 mesas · $120.000</option>
           </select>
         </div>
+        <div>
+          <label>Número de mesas (mín. {planInfo.included})</label>
+          <input
+            value={maxTables}
+            onChange={(e) => setMaxTables(e.target.value)}
+            type="number"
+            min={planInfo.included}
+          />
+        </div>
+      </div>
+
+      <div className="row" style={{ marginTop: 8 }}>
         <div>
           <label>Género</label>
           <select value={genre} onChange={(e) => setGenre(e.target.value)}>
@@ -448,6 +476,18 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
             <option value="rock_espanol">Rock en español</option>
             <option value="electronica">Electrónica</option>
           </select>
+        </div>
+        <div>
+          <label>Total mensual (calculado)</label>
+          <div className="msg ok" style={{ marginTop: 8, fontSize: 16 }}>
+            <b>${computedAmount.toLocaleString('es-CO')}</b>
+            {extra > 0 && (
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {' '}
+                = {planInfo.base.toLocaleString('es-CO')} base + {extra} mesa(s) extra × $10.000
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -464,8 +504,12 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
       {withPayment && (
         <div className="row" style={{ marginTop: 8 }}>
           <div>
-            <label>Monto (COP)</label>
-            <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" />
+            <label>Monto a cobrar (COP)</label>
+            <input
+              value={withPayment ? String(computedAmount) : amount}
+              onChange={(e) => setAmount(e.target.value)}
+              type="number"
+            />
           </div>
           <div>
             <label>Método</label>
