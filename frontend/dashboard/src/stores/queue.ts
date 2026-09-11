@@ -27,6 +27,10 @@ interface QueueState {
   skipItem: (queueItemId: number) => Promise<void>
   /** Reproduce un ítem de la cola (lo marca como "reproduciendo"). */
   playItem: (queueItemId: number) => Promise<void>
+  /** Mueve un ítem de la cola arriba o abajo. */
+  moveItem: (queueItemId: number, direction: 'up' | 'down') => Promise<void>
+  /** Pone a sonar una canción del catálogo de inmediato. */
+  enqueuePlaylist: (playlistItemId: number) => Promise<void>
   /** Reemplaza la cola con un snapshot recibido por WebSocket. */
   setQueue: (queue: QueueItem[]) => void
   /** Reemplaza las peticiones pendientes con un snapshot. */
@@ -68,6 +72,19 @@ export const useQueue = create<QueueState>((set, get) => ({
 
   playItem: async (queueItemId) => {
     await api(`/music/queue/${queueItemId}/play/`, { method: 'POST' })
+    await get().fetchQueue()
+  },
+
+  moveItem: async (queueItemId, direction) => {
+    await api(`/music/queue/${queueItemId}/reorder/`, {
+      method: 'POST',
+      body: JSON.stringify({ direction }),
+    })
+    await get().fetchQueue()
+  },
+
+  enqueuePlaylist: async (playlistItemId) => {
+    await api(`/music/playlist/${playlistItemId}/play/`, { method: 'POST' })
     await get().fetchQueue()
   },
 

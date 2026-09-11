@@ -9,7 +9,7 @@ import { useQueueSync } from '@/hooks/useQueue'
  * se sincronizan en tiempo real vía WebSocket.
  */
 export function QueuePage() {
-  const { queue, skipItem, playItem } = useQueueSync()
+  const { queue, skipItem, playItem, moveItem } = useQueueSync()
 
   return (
     <Card>
@@ -17,7 +17,7 @@ export function QueuePage() {
         <CardTitle className="text-base">Cola de reproducción</CardTitle>
       </CardHeader>
       <CardContent>
-        <QueueList items={queue} onSkip={skipItem} onPlay={playItem} />
+        <QueueList items={queue} onSkip={skipItem} onPlay={playItem} onMove={moveItem} />
       </CardContent>
     </Card>
   )

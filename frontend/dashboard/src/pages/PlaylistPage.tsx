@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { Plus } from 'lucide-react'
+import { Play, Plus } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
 import type { PlaylistItem } from '@/lib/types'
+import { useQueue } from '@/stores/queue'
 
 /**
  * Página de gestión de la playlist (catálogo de canciones aprobadas).
@@ -21,6 +22,7 @@ export function PlaylistPage() {
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const enqueuePlaylist = useQueue((s) => s.enqueuePlaylist)
 
   const fetchItems = useCallback(async () => {
     try {
@@ -116,6 +118,15 @@ export function PlaylistPage() {
                   <Badge variant={item.autodj_approved ? 'accent' : 'muted'}>
                     {item.autodj_approved ? 'AutoDJ' : 'Manual'}
                   </Badge>
+                  <Button
+                    variant="default"
+                    size="icon"
+                    onClick={() => void enqueuePlaylist(item.id)}
+                    aria-label="Reproducir ahora"
+                    title="Reproducir ahora"
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
                 </li>
               ))}
             </ul>

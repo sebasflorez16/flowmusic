@@ -12,10 +12,12 @@ from apps.tenants.music.client_views import (
     ClientTVView,
 )
 from apps.tenants.music.views import (
+    PlaylistEnqueueView,
     PlaylistItemDetailView,
     PlaylistListCreateView,
     QueueListView,
     QueuePlayView,
+    QueueReorderView,
     QueueSkipView,
     RequestApproveView,
     RequestListView,
@@ -25,9 +27,11 @@ from apps.tenants.music.views import (
 urlpatterns = [
     path("music/playlist/", PlaylistListCreateView.as_view(), name="playlist-list-create"),
     path("music/playlist/<int:pk>/", PlaylistItemDetailView.as_view(), name="playlist-item-detail"),
+    path("music/playlist/<int:pk>/play/", PlaylistEnqueueView.as_view(), name="playlist-enqueue"),
     path("music/queue/", QueueListView.as_view(), name="queue-list"),
     path("music/queue/<int:pk>/skip/", QueueSkipView.as_view(), name="queue-skip"),
     path("music/queue/<int:pk>/play/", QueuePlayView.as_view(), name="queue-play"),
+    path("music/queue/<int:pk>/reorder/", QueueReorderView.as_view(), name="queue-reorder"),
     path("requests/", RequestListView.as_view(), name="request-list"),
     path("requests/<int:pk>/approve/", RequestApproveView.as_view(), name="request-approve"),
     path("requests/<int:pk>/reject/", RequestRejectView.as_view(), name="request-reject"),

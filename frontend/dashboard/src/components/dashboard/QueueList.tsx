@@ -1,4 +1,4 @@
-import { Play, SkipForward } from 'lucide-react'
+import { ArrowDown, ArrowUp, Play, SkipForward } from 'lucide-react'
 
 import { CountdownTimer } from '@/components/common/CountdownTimer'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,8 @@ interface QueueListProps {
   onSkip: (id: number) => void
   /** Callback para reproducir un ítem. */
   onPlay: (id: number) => void
+  /** Callback para mover un ítem arriba o abajo. */
+  onMove?: (id: number, direction: 'up' | 'down') => void
 }
 
 /** Mapea el estado de un ítem a la variante visual del badge. */
@@ -30,10 +32,12 @@ const STATUS_VARIANT: Record<QueueItem['status'], 'default' | 'accent' | 'succes
  * Muestra posición, título/artista, mesa que lo pidió, estado y tiempo estimado
  * de espera. Permite reproducir o saltar un ítem directamente.
  */
-export function QueueList({ items, onSkip, onPlay }: QueueListProps) {
+export function QueueList({ items, onSkip, onPlay, onMove }: QueueListProps) {
   if (items.length === 0) {
     return <p className="py-8 text-center text-sm text-muted-foreground">La cola está vacía</p>
   }
+
+  const approvedItems = items.filter((item) => item.status === 'approved')
 
   return (
     <ul className="space-y-2">
@@ -65,6 +69,32 @@ export function QueueList({ items, onSkip, onPlay }: QueueListProps) {
           <div className="w-16 text-right">
             <CountdownTimer seconds={item.estimated_wait_seconds} size="sm" />
           </div>
+
+          {/* Reordenar (solo ítems en espera) */}
+          {onMove && item.status === 'approved' && (
+            <div className="flex flex-col gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => onMove(item.id, 'up')}
+                disabled={approvedItems[0]?.id === item.id}
+                aria-label="Subir"
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => onMove(item.id, 'down')}
+                disabled={approvedItems[approvedItems.length - 1]?.id === item.id}
+                aria-label="Bajar"
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
 
           {/* Acciones */}
           {item.status !== 'playing' && (

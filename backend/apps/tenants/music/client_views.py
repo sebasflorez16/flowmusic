@@ -305,15 +305,9 @@ class ClientAutoDJView(APIView):
             # el AutoDJ nunca debe quedarse en silencio.
             fallback_queries = ["exitos del momento", "canciones populares 2025"]
 
-            candidates: list[dict] = []
+            pools: list[list[dict]] = []
             if query:
-                results = search_youtube(query, limit=20)
-                candidates = [
-                    r for r in results
-                    if _is_normal_song(r)
-                    and not is_recently_played(r["youtube_id"])
-                    and is_embeddable(r["youtube_id"])
-                ]
+                pools.append(search_youtube(query, limit=20))
             else:
                 last_played = (
                     QueueItem.objects.filter(status=QueueItem.Status.PLAYED)
@@ -326,29 +320,30 @@ class ClientAutoDJView(APIView):
                     "youtube_id", flat=True
                 ).first()
                 if seed:
-                    candidates = [
-                        r for r in related_videos(seed, limit=20)
-                        if _is_normal_song(r)
-                        and not is_recently_played(r["youtube_id"])
-                        and is_embeddable(r["youtube_id"])
-                    ]
+                    pools.append(related_videos(seed, limit=20))
 
-            # Si el género no dio candidatos válidos, probamos queries genéricos.
             for fb in fallback_queries:
-                if candidates:
+                pools.append(search_youtube(fb, limit=20))
+
+            # Baraja los candidatos válidos (duración normal) y verifica la
+            # embebibilidad solo de unos pocos, en vez de hacer una petición
+            # HTTP por cada resultado. Esto reduce la espera entre canciones.
+            normal = [
+                r
+                for pool in pools
+                for r in pool
+                if _is_normal_song(r) and not is_recently_played(r["youtube_id"])
+            ]
+            random.shuffle(normal)
+
+            pick = None
+            for candidate in normal[:6]:
+                if is_embeddable(candidate["youtube_id"]):
+                    pick = candidate
                     break
-                results = search_youtube(fb, limit=20)
-                candidates = [
-                    r for r in results
-                    if _is_normal_song(r)
-                    and not is_recently_played(r["youtube_id"])
-                    and is_embeddable(r["youtube_id"])
-                ]
 
-            if not candidates:
+            if pick is None:
                 return Response(_tv_snapshot(tenant))
-
-            pick = random.choice(candidates)
 
             playlist_item, _ = PlaylistItem.objects.get_or_create(
                 youtube_id=pick["youtube_id"],

@@ -258,6 +258,65 @@ class QueueSkipView(APIView):
         return Response(QueueItemSerializer(item).data)
 
 
+class QueueReorderView(APIView):
+    """Mueve un ítem de la cola arriba o abajo (reordena manualmente).
+
+    Solo se pueden reordenar ítems en estado ``approved`` (los que esperan).
+    La canción en reproducción no se mueve.
+    """
+
+    def post(self, request, pk):
+        """Recibe ``direction`` = "up" | "down" y reordena la cola aprobada."""
+        direction = request.data.get("direction")
+        if direction not in ("up", "down"):
+            return Response(
+                {"detail": "direction debe ser 'up' o 'down'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            item = QueueItem.objects.get(pk=pk)
+        except QueueItem.DoesNotExist:
+            return Response({"detail": "Ítem no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        if item.status != QueueItem.Status.APPROVED:
+            return Response(
+                {"detail": "Solo se pueden reordenar canciones en espera."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        approved = list(QueueItem.objects.filter(status=QueueItem.Status.APPROVED).order_by("position"))
+        idx = next((i for i, q in enumerate(approved) if q.id == item.id), None)
+        if idx is None:
+            return Response({"detail": "Ítem no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        target = idx - 1 if direction == "up" else idx + 1
+        if target < 0 or target >= len(approved):
+            # Ya está al tope/fondo: no hay nada que mover.
+            return Response(QueueItemSerializer(item).data)
+
+        # Intercambia posiciones.
+        other = approved[target]
+        item.position, other.position = other.position, item.position
+        item.save(update_fields=["position"])
+        other.save(update_fields=["position"])
+
+        # Re-normaliza posiciones y tiempos de espera. Si hay una canción
+        # reproduciéndose, las aprobadas empiezan en la posición 2; si no, en 1.
+        has_playing = QueueItem.objects.filter(status=QueueItem.Status.PLAYING).exists()
+        start = 2 if has_playing else 1
+        remaining = list(QueueItem.objects.filter(status=QueueItem.Status.APPROVED).order_by("position"))
+        for i, q in enumerate(remaining, start=start):
+            q.position = i
+            q.estimated_wait_seconds = compute_estimated_wait(remaining[: i - 1])
+            q.save(update_fields=["position", "estimated_wait_seconds"])
+
+        slug = getattr(getattr(request, "tenant", None), "slug", None)
+        if slug:
+            emit_queue_updated(slug, _queue_snapshot())
+        return Response(QueueItemSerializer(item).data)
+
+
 class QueuePlayView(APIView):
     """Reproduce un ítem de la cola (lo marca como "reproduciendo").
 
@@ -299,3 +358,42 @@ class QueuePlayView(APIView):
         if slug:
             emit_queue_updated(slug, _queue_snapshot())
         return Response(QueueItemSerializer(item).data)
+
+
+class PlaylistEnqueueView(APIView):
+    """Agrega una canción del catálogo a la cola y la reproduce de inmediato."""
+
+    def post(self, request, pk):
+        """Pone ``pk`` (PlaylistItem) a sonar ahora."""
+        try:
+            playlist_item = PlaylistItem.objects.get(pk=pk)
+        except PlaylistItem.DoesNotExist:
+            return Response({"detail": "Canción no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        QueueItem.objects.filter(status=QueueItem.Status.PLAYING).update(
+            status=QueueItem.Status.PLAYED, played_at=timezone.now()
+        )
+
+        QueueItem.objects.create(
+            playlist_item=playlist_item,
+            requested_by="Dueño",
+            status=QueueItem.Status.PLAYING,
+            position=1,
+            estimated_wait_seconds=0,
+            started_at=timezone.now(),
+        )
+        playlist_item.play_count += 1
+        playlist_item.save(update_fields=["play_count"])
+
+        remaining = list(
+            QueueItem.objects.filter(status=QueueItem.Status.APPROVED).order_by("position")
+        )
+        for idx, q in enumerate(remaining, start=2):
+            q.position = idx
+            q.estimated_wait_seconds = compute_estimated_wait(remaining[: idx - 1])
+            q.save(update_fields=["position", "estimated_wait_seconds"])
+
+        slug = getattr(getattr(request, "tenant", None), "slug", None)
+        if slug:
+            emit_queue_updated(slug, _queue_snapshot())
+        return Response(_queue_snapshot(), status=status.HTTP_201_CREATED)
