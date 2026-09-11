@@ -3,8 +3,8 @@
   publish = "dist"
 
 [build.environment]
-  VITE_API_URL = "https://backend-production-8ade.up.railway.app/api/v1"
-  VITE_DASHBOARD_URL = "https://flowmusic-dashboard.netlify.app"
+  VITE_API_URL = "https://api.getflowmusic.com/api/v1"
+  VITE_DASHBOARD_URL = "https://app.getflowmusic.com"
 
 [[redirects]]
   from = "/*"
