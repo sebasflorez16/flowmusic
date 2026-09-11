@@ -12,9 +12,17 @@ export default function App() {
           <div className="brand">
             <span className="dot">🎵</span> MusicFlow
           </div>
-          <a className="btn ghost" href="#planes">
-            Ver planes
-          </a>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a className="btn ghost" href="#planes">
+              Ver planes
+            </a>
+            <a
+              className="btn ghost"
+              href={import.meta.env.VITE_DASHBOARD_URL ?? 'https://app.getflowmusic.com'}
+            >
+              Iniciar sesión
+            </a>
+          </div>
         </nav>
 
         <header className="hero">
