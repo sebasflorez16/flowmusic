@@ -7,30 +7,35 @@ import type { QueueItem, TVSnapshot } from '@/types'
 const PLAYER_ENDED = 0
 /** Duración por defecto (seg) si la canción no trae duración. */
 const DEFAULT_DURATION = 180
+/** Clave de localStorage para recordar la preferencia de sonido. */
+const MUTE_KEY = 'musicflow.tv.muted'
 
 /**
  * Vista TV: reproduce la cola de YouTube en pantalla completa.
  *
- * Usa un <iframe> normal de YouTube (arranca silenciado para permitir el
- * autoplay). El estado de sonido se recuerda y se restaura en cada canción
- * mediante comandos postMessage al reproductor, de modo que el volumen no se
- * reinicie al avanzar. Los mensajes de marketing rotan uno a uno.
+ * Robustez frente a pestañas en segundo plano: el avance no depende de un único
+ * ``setTimeout`` (que el navegador puede retrasar), sino de un "heartbeat" que
+ * compara el tiempo real transcurrido con la duración de la canción. Al volver
+ * a la pestaña se re-sincroniza. Además detecta errores de YouTube (video no
+ * reproducible) y salta automáticamente a la siguiente del AutoDJ.
  */
 export function TVScreen() {
   const [snapshot, setSnapshot] = useState<TVSnapshot | null>(null)
   const [currentId, setCurrentId] = useState<number | null>(null)
   const [messageIndex, setMessageIndex] = useState(0)
-  // Inicia silenciado: los navegadores solo permiten autoplay de YouTube si el
-  // video arranca mudo. El usuario activa el sonido con el botón.
-  const [muted, setMuted] = useState(true)
+  const [muted, setMuted] = useState<boolean>(
+    () => localStorage.getItem(MUTE_KEY) !== 'false',
+  )
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentIdRef = useRef<number | null>(null)
   const queueRef = useRef<QueueItem[]>([])
   const advancingRef = useRef(false)
   const autodjRef = useRef(false)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
-  const mutedRef = useRef(true)
+  const mutedRef = useRef(muted)
+  // Timestamp real en que empezó la canción actual (para el heartbeat).
+  const startedAtRef = useRef<number>(Date.now())
+  const durationRef = useRef<number>(DEFAULT_DURATION * 1000)
 
   // Extrae el slug de la URL: /tv/<slug>
   const slug = window.location.pathname.split('/')[2] ?? ''
@@ -41,6 +46,7 @@ export function TVScreen() {
 
   useEffect(() => {
     mutedRef.current = muted
+    localStorage.setItem(MUTE_KEY, String(muted))
   }, [muted])
 
   /** Envía un comando al reproductor de YouTube vía postMessage. */
@@ -54,7 +60,7 @@ export function TVScreen() {
     }
   }
 
-  /** Activa o silencia el sonido (persiste entre canciones). */
+  /** Activa o silencia el sonido (persiste entre canciones y recargas). */
   const toggleMute = () => {
     if (muted) {
       sendCommand('unMute')
@@ -68,15 +74,17 @@ export function TVScreen() {
   /** Al cargar un video nuevo, restaura el estado de sonido que había. */
   const handleIframeLoad = () => {
     if (!mutedRef.current) {
-      setTimeout(() => sendCommand('unMute'), 600)
+      // Reintenta el unmute unas pocas veces (el player puede tardar en estar listo).
+      for (const delay of [400, 900, 1500]) {
+        setTimeout(() => sendCommand('unMute'), delay)
+      }
     }
   }
 
-  /** Programa el avance automático según la duración de la canción actual. */
-  const scheduleAdvance = (item: QueueItem) => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-    const duration = (item.playlist_item.duration_seconds || DEFAULT_DURATION) * 1000
-    timerRef.current = setTimeout(() => advance(), duration)
+  /** Marca el inicio de la canción actual para el heartbeat. */
+  const markStart = (item: QueueItem) => {
+    startedAtRef.current = Date.now()
+    durationRef.current = (item.playlist_item.duration_seconds || DEFAULT_DURATION) * 1000
   }
 
   /** Pide al AutoDJ una canción del género del bar cuando la cola queda vacía. */
@@ -90,7 +98,7 @@ export function TVScreen() {
         if (generated.playing) {
           currentIdRef.current = generated.playing.id
           setCurrentId(generated.playing.id)
-          scheduleAdvance(generated.playing)
+          markStart(generated.playing)
         }
       })
       .catch(() => {
@@ -114,7 +122,7 @@ export function TVScreen() {
       currentIdRef.current = next.id
       setCurrentId(next.id)
       void api(`/client/${slug}/playing/${next.id}/`, { method: 'POST' }).catch(() => {})
-      scheduleAdvance(next)
+      markStart(next)
     } else {
       // Fin de la cola: marca la canción como reproducida y deja que el AutoDJ
       // continúe con el género del bar.
@@ -124,7 +132,6 @@ export function TVScreen() {
       }
       currentIdRef.current = null
       setCurrentId(null)
-      if (timerRef.current) clearTimeout(timerRef.current)
       triggerAutoDJ()
     }
   }
@@ -135,7 +142,7 @@ export function TVScreen() {
   const triggerAutoDJRef = useRef(triggerAutoDJ)
   triggerAutoDJRef.current = triggerAutoDJ
 
-  // Detecta el fin del video (postMessage) como refuerzo del temporizador.
+  // Detecta fin del video y errores de YouTube (postMessage).
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (typeof event.data !== 'string') return
@@ -146,14 +153,59 @@ export function TVScreen() {
         return
       }
       const info = (
-        data as { info?: { eventType?: string; eventArgs?: { playerState?: number } } }
+        data as {
+          info?: {
+            eventType?: string
+            eventArgs?: { playerState?: number; data?: number }
+          }
+        }
       )?.info
+
       if (info?.eventType === 'onStateChange' && info.eventArgs?.playerState === PLAYER_ENDED) {
         advanceRef.current()
+      }
+
+      // Error de YouTube (video no reproducible / embed bloqueado / eliminado):
+      // salta a la siguiente o pide otra al AutoDJ.
+      if (info?.eventType === 'onError') {
+        const endedId = currentIdRef.current
+        if (endedId) {
+          void api(`/client/${slug}/played/${endedId}/`, { method: 'POST' }).catch(() => {})
+        }
+        currentIdRef.current = null
+        setCurrentId(null)
+        triggerAutoDJRef.current()
       }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug])
+
+  // Heartbeat: avanza según el tiempo real transcurrido, robusto al throttling
+  // de pestañas en segundo plano (setInterval en background se limita a ~1/min,
+  // pero al volver a primer plano se dispara de inmediato y corrige el avance).
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (currentIdRef.current === null) return
+      if (Date.now() - startedAtRef.current >= durationRef.current) {
+        advanceRef.current()
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Al volver a la pestaña (visibilitychange), re-sincroniza: si la canción ya
+  // terminó mientras la pestaña estaba en segundo plano, avanza de inmediato.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      if (currentIdRef.current !== null && Date.now() - startedAtRef.current >= durationRef.current) {
+        advanceRef.current()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
   /** Carga la cola desde el backend. */
@@ -166,18 +218,16 @@ export function TVScreen() {
         if (data.playing) {
           currentIdRef.current = data.playing.id
           setCurrentId(data.playing.id)
-          scheduleAdvance(data.playing)
+          markStart(data.playing)
         } else if (data.queue.length > 0) {
           const first = data.queue[0]
           currentIdRef.current = first.id
           setCurrentId(first.id)
           void api(`/client/${slug}/playing/${first.id}/`, { method: 'POST' }).catch(() => {})
-          scheduleAdvance(first)
+          markStart(first)
         }
       }
 
-      // AutoDJ: si no hay nada sonando y la cola está vacía, pedir una
-      // canción similar al estilo del bar (una sola vez por vacío).
       if (!data.playing && data.queue.length === 0) {
         triggerAutoDJ()
       } else if (data.queue.length > 0) {
@@ -194,7 +244,6 @@ export function TVScreen() {
     const interval = setInterval(() => void load(false), 60000)
     return () => {
       clearInterval(interval)
-      if (timerRef.current) clearTimeout(timerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -222,19 +271,16 @@ export function TVScreen() {
       const stillInQueue = queue.some((q) => q.id === currentIdRef.current)
 
       if (msg.playing && msg.playing.id !== currentIdRef.current) {
-        // La canción que suena cambió (p. ej. el dueño reprodujo otra): sincroniza.
         currentIdRef.current = msg.playing.id
         setCurrentId(msg.playing.id)
-        scheduleAdvance(msg.playing)
+        markStart(msg.playing)
       } else if (!msg.playing && queue.length > 0 && !stillInQueue) {
-        // La canción que sonaba fue saltada y quedan canciones: arranca la primera.
         const first = queue[0]
         currentIdRef.current = first.id
         setCurrentId(first.id)
         void api(`/client/${slug}/playing/${first.id}/`, { method: 'POST' }).catch(() => {})
-        scheduleAdvance(first)
+        markStart(first)
       } else if (!msg.playing && queue.length === 0) {
-        // Cola vacía: el AutoDJ continúa con el género del bar.
         triggerAutoDJRef.current()
       }
     }
