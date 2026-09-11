@@ -85,6 +85,13 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     if (refreshed) {
       return api<T>(path, options)
     }
+    // El refresh falló (sesión expirada o iniciada en otro equipo): se limpia
+    // la sesión y se redirige al login.
+    clearTokens()
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login'
+    }
+    throw new ApiError('Sesión expirada. Inicia sesión de nuevo.', 401)
   }
 
   if (!response.ok) {

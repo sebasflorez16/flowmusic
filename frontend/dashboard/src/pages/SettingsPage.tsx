@@ -17,6 +17,9 @@ export function SettingsPage() {
   const tenant = useAuth((s) => s.tenant)
   const setTenant = useAuth((s) => s.setTenant)
   const [form, setForm] = useState<Tenant | null>(tenant)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setForm(tenant)
@@ -28,18 +31,26 @@ export function SettingsPage() {
 
   const update = <K extends keyof Tenant>(key: K, value: Tenant[K]) => {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev))
+    setSaved(false)
   }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    setSaving(true)
+    setError(null)
+    setSaved(false)
     try {
       const updated = await api<Tenant>('/settings/tenant/', {
         method: 'PATCH',
         body: JSON.stringify(form),
       })
       setTenant(updated)
-    } catch {
-      // El error ya se maneja en el cliente api.
+      setForm(updated)
+      setSaved(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron guardar los cambios.')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -122,7 +133,14 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Button type="submit">Guardar cambios</Button>
+      {saved && (
+        <p className="text-sm text-emerald-500">✓ Cambios guardados correctamente</p>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <Button type="submit" disabled={saving}>
+        {saving ? 'Guardando…' : 'Guardar cambios'}
+      </Button>
     </form>
   )
 }
