@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { Play, Plus } from 'lucide-react'
+import { ListPlus, Play, Plus } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,8 @@ export function PlaylistPage() {
   const [results, setResults] = useState<YouTubeResult[]>([])
   const [searching, setSearching] = useState(false)
   const [playingId, setPlayingId] = useState<string | null>(null)
+  const [queueingId, setQueueingId] = useState<string | null>(null)
+  const [queueMsg, setQueueMsg] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchItems = useCallback(async () => {
@@ -102,6 +104,23 @@ export function PlaylistPage() {
     }
   }
 
+  /** Agrega un resultado de YouTube al final de la cola (sin reproducir). */
+  const queueYouTube = async (item: YouTubeResult) => {
+    setQueueingId(item.youtube_id)
+    try {
+      await api('/music/queue-add-youtube/', {
+        method: 'POST',
+        body: JSON.stringify(item),
+      })
+      setQueueMsg(`✓ "${item.title}" agregada a la cola`)
+      setTimeout(() => setQueueMsg(null), 2500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo agregar a la cola')
+    } finally {
+      setQueueingId(null)
+    }
+  }
+
   const filtered = items.filter(
     (item) =>
       item.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -160,6 +179,16 @@ export function PlaylistPage() {
                     <p className="truncate text-xs text-muted-foreground">{item.artist}</p>
                   </div>
                   <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => void queueYouTube(item)}
+                    disabled={queueingId === item.youtube_id}
+                    aria-label="Agregar a la cola"
+                    title="Agregar a la cola"
+                  >
+                    <ListPlus className="h-4 w-4" />
+                  </Button>
+                  <Button
                     variant="default"
                     size="icon"
                     onClick={() => void playYouTube(item)}
@@ -176,6 +205,10 @@ export function PlaylistPage() {
 
           {query.trim() && !searching && results.length === 0 && (
             <p className="text-sm text-muted-foreground">Sin resultados. Prueba otra búsqueda.</p>
+          )}
+
+          {queueMsg && (
+            <p className="mt-3 text-sm text-emerald-500">{queueMsg}</p>
           )}
         </CardContent>
       </Card>

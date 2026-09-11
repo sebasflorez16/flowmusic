@@ -464,3 +464,56 @@ class PlayYouTubeView(APIView):
         if slug:
             emit_queue_updated(slug, _queue_snapshot())
         return Response(_queue_snapshot(), status=status.HTTP_201_CREATED)
+
+
+class QueueAddYouTubeView(APIView):
+    """Agrega un video de YouTube a la cola (sin reproducir).
+
+    Se usa desde el buscador del dueño: el botón "Agregar a cola" encola la
+    canción al final como ``approved``, respetando el orden de la cola.
+    """
+
+    def post(self, request):
+        """Encola un video de YouTube (creándolo en el catálogo si no existe)."""
+        raw = request.data.get("youtube_id") or request.data.get("url")
+        try:
+            youtube_id = extract_youtube_id(raw or "")
+        except ValidationError as exc:
+            return Response({"detail": str(exc.detail[0])}, status=status.HTTP_400_BAD_REQUEST)
+
+        title = request.data.get("title", "")
+        artist = request.data.get("artist", "")
+        if not title:
+            title, author = fetch_youtube_metadata(youtube_id)
+            artist = artist or author
+
+        duration = request.data.get("duration_seconds", 0) or 0
+        thumbnail = request.data.get("thumbnail_url") or f"https://i.ytimg.com/vi/{youtube_id}/hqdefault.jpg"
+
+        playlist_item, _ = PlaylistItem.objects.get_or_create(
+            youtube_id=youtube_id,
+            defaults={
+                "title": title,
+                "artist": artist,
+                "duration_seconds": duration,
+                "thumbnail_url": thumbnail,
+            },
+        )
+        if not playlist_item.duration_seconds and duration:
+            playlist_item.duration_seconds = duration
+            playlist_item.save(update_fields=["duration_seconds"])
+
+        # Posición al final de la cola activa.
+        active = QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position")
+        queue_item = QueueItem.objects.create(
+            playlist_item=playlist_item,
+            requested_by="Dueño",
+            status=QueueItem.Status.APPROVED,
+            position=active.count() + 1,
+            estimated_wait_seconds=compute_estimated_wait(list(active)),
+        )
+
+        slug = getattr(getattr(request, "tenant", None), "slug", None)
+        if slug:
+            emit_queue_updated(slug, _queue_snapshot())
+        return Response(QueueItemSerializer(queue_item).data, status=status.HTTP_201_CREATED)

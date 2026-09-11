@@ -41,15 +41,30 @@ MAX_AUTODJ_DURATION = 600
 
 # Consulta de búsqueda por género para el AutoDJ (música acorde al estilo del bar).
 GENRE_QUERIES = {
-    "vallenato": "vallenato exitos",
+    "vallenato": "vallenatos exitos",
     "reggaeton": "reggaeton exitos",
     "salsa": "salsa exitos",
-    "cumbia": "cumbia exitos",
+    "cumbia": "cumbias exitos",
     "ranchera": "rancheras exitos",
     "pop_latino": "pop latino exitos",
     "rock_espanol": "rock en español exitos",
     "electronica": "electronica exitos",
     "crossover": "exitos musica variada",
+}
+
+# Palabras clave por género para filtrar resultados de YouTube y asegurar que la
+# canción elegida por el AutoDJ sea realmente del género del bar (evita que se
+# cuele un reguetón en un bar de vallenato).
+GENRE_KEYWORDS = {
+    "vallenato": ["vallenato", "vallenata", "vallenatos", "acordeon", "diomedes", "silvestre", "poncho zuleta", "binomio", "combinacion vallenata", "rafa perez", "martin elias", "jorge celedon", "ivan villazon", "felipe pelaez", "diablitos", "codiscos", "nelson velasquez", "jean carlos", "hebert vargas", "los inquietos", "peter manjarres", "el gran combo"],
+    "reggaeton": ["reggaeton", "reggaetón", "regueton", "reguetón", "bad bunny", "ozuna", "karol g", "j balvin", "maluma", "feid", "wisin", "daddy yankee", "anuel", "raw alejandro", "sech", "myke towers", "farruko", "nicki nicole", "mora", "jhay"],
+    "salsa": ["salsa", "marc anthony", "hector lavoe", "gilberto santa rosa", "grupo niche", "celia cruz", "willie colon", "oscar de leon", "la sonora", "joe arroyo", "fruko", "fania", "reuben blades", "ruben blades", "eddie santiago", "frankie ruiz", "tito nieves", "jerry rivera", "victor manuelle", "el gran combo de puerto rico"],
+    "cumbia": ["cumbia", "cumbias", "los angeles azules", "tropical", "anlfo", "sonora dinamita", "gilda", "chichi peralta", "pastor lopez", "rodolfo aicardi"],
+    "ranchera": ["ranchera", "rancheras", "mariachi", "vicente fernandez", "alejandro fernandez", "pedro infante", "jose alfredo jimenez", "ana gabriel", "juan gabriel", "pepe aguilar", "christian nodal", "julion alvarez"],
+    "pop_latino": ["pop latino", "balada", "romantica", "romántica", "shakira", "ricky martin", "luis miguel", "camilo", "sebastian yatra", "manuel turizo", "morat", "reik", "cnco", "mau y ricky", "danny ocean", "carlos vives", "juanes"],
+    "rock_espanol": ["rock en español", "rock", "soda stereo", "mana", "maná", "heroes del silencio", "enrique bunbury", "caifanes", "zoe", "cafe tacvba", "la oreja", "hombres g", "enanitos verdes", "jaguares", "juanes"],
+    "electronica": ["electronica", "electrónica", "house", "techno", "edm", "dj", "remix", "avicii", "david guetta", "calvin harris", "tiesto", "martin garrix", "marshmello", "alan walker"],
+    "crossover": [],
 }
 
 
@@ -61,6 +76,18 @@ def _is_normal_song(result: dict) -> bool:
     """
     duration = result.get("duration_seconds", 0) or 0
     return MIN_AUTODJ_DURATION <= duration <= MAX_AUTODJ_DURATION
+
+
+def _matches_genre(result: dict, genre: str) -> bool:
+    """Indica si el resultado coincide con el género del bar (por palabras clave).
+
+    Si no hay palabras clave definidas (crossover) se acepta cualquier resultado.
+    """
+    keywords = GENRE_KEYWORDS.get(genre, [])
+    if not keywords:
+        return True
+    haystack = f"{result.get('title', '')} {result.get('artist', '')}".lower()
+    return any(k in haystack for k in keywords)
 
 
 def _tv_snapshot(tenant) -> dict:
@@ -302,43 +329,40 @@ class ClientAutoDJView(APIView):
             # Busca música acorde al género registrado del bar. Si no hay
             # género definido, cae a los relacionados de la última canción.
             query = GENRE_QUERIES.get(tenant.genre)
-            # Queries de respaldo por si el primero devuelve solo mixes/mosaicos:
-            # el AutoDJ nunca debe quedarse en silencio.
-            fallback_queries = ["exitos del momento", "canciones populares 2025"]
 
             pools: list[list[dict]] = []
             if query:
-                pools.append(search_youtube(query, limit=20))
-            else:
-                last_played = (
-                    QueueItem.objects.filter(status=QueueItem.Status.PLAYED)
-                    .exclude(requested_by="AutoDJ")
-                    .order_by("-played_at")
-                    .values_list("playlist_item__youtube_id", flat=True)
-                    .first()
-                )
-                seed = last_played or PlaylistItem.objects.values_list(
-                    "youtube_id", flat=True
-                ).first()
-                if seed:
-                    pools.append(related_videos(seed, limit=20))
+                pools.append(search_youtube(query, limit=25))
 
-            for fb in fallback_queries:
-                pools.append(search_youtube(fb, limit=20))
-
-            # Baraja los candidatos válidos (duración normal) y verifica la
-            # embebibilidad solo de unos pocos, en vez de hacer una petición
-            # HTTP por cada resultado. Esto reduce la espera entre canciones.
+            # 1) Filtra por duración normal + no repetida recientemente.
             normal = [
                 r
                 for pool in pools
                 for r in pool
                 if _is_normal_song(r) and not is_recently_played(r["youtube_id"])
             ]
-            random.shuffle(normal)
+
+            # 2) Prioriza las que coinciden con el género del bar (palabras clave).
+            genre_matches = [r for r in normal if _matches_genre(r, tenant.genre)]
+            candidate_pool = genre_matches if genre_matches else normal
+
+            # 3) Si no hay candidatos de género, intenta queries de respaldo
+            #    (solo entonces, para no demorar la búsqueda principal).
+            if not candidate_pool:
+                for fb in ["exitos del momento", "canciones populares 2025"]:
+                    results = search_youtube(fb, limit=25)
+                    fb_normal = [
+                        r for r in results
+                        if _is_normal_song(r) and not is_recently_played(r["youtube_id"])
+                    ]
+                    candidate_pool = [r for r in fb_normal if _matches_genre(r, tenant.genre)] or fb_normal
+                    if candidate_pool:
+                        break
+
+            random.shuffle(candidate_pool)
 
             pick = None
-            for candidate in normal[:6]:
+            for candidate in candidate_pool[:8]:
                 if is_embeddable(candidate["youtube_id"]):
                     pick = candidate
                     break
