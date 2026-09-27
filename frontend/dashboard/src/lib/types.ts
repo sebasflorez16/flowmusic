@@ -22,6 +22,15 @@ export type Genre =
   | 'rock_espanol'
   | 'electronica'
   | 'crossover'
+  | 'popular'
+  | 'banda'
+  | 'nortena'
+  | 'bachata'
+  | 'merengue'
+  | 'tropical'
+  | 'champeta'
+  | 'corridos'
+  | 'custom'
 
 /** Mesa del bar. */
 export interface Table {
@@ -131,6 +140,7 @@ export interface Tenant {
   crossfade_enabled: boolean
   autodj_enabled: boolean
   genre: Genre
+  custom_genre: string
   monthly_total: string
   extra_tables: number
 }

@@ -50,6 +50,14 @@ GENRE_QUERIES = {
     "rock_espanol": "rock en español exitos",
     "electronica": "electronica exitos",
     "crossover": "exitos musica variada",
+    "popular": "musica popular colombiana exitos",
+    "banda": "banda corridos exitos",
+    "nortena": "nortenas corridos exitos",
+    "bachata": "bachata exitos",
+    "merengue": "merengue exitos",
+    "tropical": "musica tropical salsa exitos",
+    "champeta": "champeta exitos",
+    "corridos": "corridos tumbados exitos",
 }
 
 # Palabras clave por género para filtrar resultados de YouTube y asegurar que la
@@ -64,6 +72,14 @@ GENRE_KEYWORDS = {
     "pop_latino": ["pop latino", "balada", "romantica", "romántica", "shakira", "ricky martin", "luis miguel", "camilo", "sebastian yatra", "manuel turizo", "morat", "reik", "cnco", "mau y ricky", "danny ocean", "carlos vives", "juanes"],
     "rock_espanol": ["rock en español", "rock", "soda stereo", "mana", "maná", "heroes del silencio", "enrique bunbury", "caifanes", "zoe", "cafe tacvba", "la oreja", "hombres g", "enanitos verdes", "jaguares", "juanes"],
     "electronica": ["electronica", "electrónica", "house", "techno", "edm", "dj", "remix", "avicii", "david guetta", "calvin harris", "tiesto", "martin garrix", "marshmello", "alan walker"],
+    "popular": ["musica popular", "música popular", "popular colombiana", "paola jara", "arelys henao", "jhonny rivera", "jessica ussher", "pipe bueno", "jhon alex", "alzate", "pasabordo", "charrasqueado", "francy"],
+    "banda": ["banda", "banda sinaloense", "banda ms", "calibre 50", "la arrolladora", "julion alvarez", "bebeto", "gerardo ortiz", "banda el recodo", "banda tierra sagrada"],
+    "nortena": ["norteña", "nortena", "norteño", "norteno", "los tigres del norte", "intocable", "ramon ayala", "pesado", "cadetes de linares", "los invasores de nuevo leon"],
+    "bachata": ["bachata", "romeo santos", "aventura", "prince royce", "frank reyes", "zacarias ferreira", "anthony santos", "raulin rodriguez", "elvis martinez", "luis vargas"],
+    "merengue": ["merengue", "elvis crespo", "olga tanon", "juan luis guerra", "sergio vargas", "los hermanos rosario", "eddy herrera", "toño rosario", "grupo mania", "la makina"],
+    "tropical": ["tropical", "salsa", "cumbia", "merengue", "orquesta", "joe arroyo", "grupo niche", "los angeles azules", "sonora dinamita", "pastor lopez"],
+    "champeta": ["champeta", "el afinaito", "kevin flores", "twister el rey", "mister black", "zaider", "el sayayin", "criss y ronny", "michel", "papoman"],
+    "corridos": ["corrido", "corridos", "corridos tumbados", "peso pluma", "natanael cano", "junior h", "fuerza regida", "frontera", "javier rosas", "grupo firme", "luis r conriquez"],
     "crossover": [],
 }
 
@@ -88,6 +104,56 @@ def _matches_genre(result: dict, genre: str) -> bool:
         return True
     haystack = f"{result.get('title', '')} {result.get('artist', '')}".lower()
     return any(k in haystack for k in keywords)
+
+
+def _autodj_query(tenant) -> str:
+    """Devuelve la consulta de búsqueda del AutoDJ según el género del bar.
+
+    Si el género es ``custom`` se usa el texto libre ``custom_genre`` del dueño.
+    """
+    if tenant.genre == Tenant.Genre.CUSTOM:
+        custom = (tenant.custom_genre or "").strip()
+        if custom:
+            return custom
+    return GENRE_QUERIES.get(tenant.genre, GENRE_QUERIES["crossover"])
+
+
+def seed_catalog_by_genre(tenant, limit: int = 10) -> int:
+    """Siembra el catálogo del tenant con canciones populares de su género.
+
+    Best-effort: si la búsqueda en YouTube falla o no hay resultados válidos,
+    devuelve 0 y no lanza excepción (el bar arranca igual, con catálogo vacío).
+    Se ejecuta dentro del esquema del tenant porque ``PlaylistItem`` es un
+    modelo por-tenant.
+    """
+    query = _autodj_query(tenant)
+    if not query:
+        return 0
+
+    results = search_youtube(query, limit=20)
+    if not results:
+        return 0
+
+    created = 0
+    with schema_context(tenant.schema_name):
+        for r in results:
+            if created >= limit:
+                break
+            if not _is_normal_song(r):
+                continue
+            _, was_created = PlaylistItem.objects.get_or_create(
+                youtube_id=r["youtube_id"],
+                defaults={
+                    "title": r["title"],
+                    "artist": r["artist"],
+                    "thumbnail_url": r["thumbnail_url"],
+                    "duration_seconds": r.get("duration_seconds", 0) or 0,
+                    "autodj_approved": True,
+                },
+            )
+            if was_created:
+                created += 1
+    return created
 
 
 def _tv_snapshot(tenant) -> dict:
@@ -326,9 +392,9 @@ class ClientAutoDJView(APIView):
                 status=QueueItem.Status.PLAYED, played_at=timezone.now()
             )
 
-            # Busca música acorde al género registrado del bar. Si no hay
-            # género definido, cae a los relacionados de la última canción.
-            query = GENRE_QUERIES.get(tenant.genre)
+            # Busca música acorde al género registrado del bar (o al género
+            # personalizado del dueño si el género es "custom").
+            query = _autodj_query(tenant)
 
             pools: list[list[dict]] = []
             if query:

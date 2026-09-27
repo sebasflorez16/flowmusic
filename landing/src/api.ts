@@ -30,6 +30,7 @@ export async function register(data: {
   phone?: string
   plan?: string
   genre?: string
+  custom_genre?: string
 }): Promise<{ email: string; role: string }> {
   const response = await fetch(`${API_URL}/auth/register/`, {
     method: 'POST',

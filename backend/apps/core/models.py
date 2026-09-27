@@ -53,6 +53,15 @@ class Tenant(TenantMixin):
         ROCK_ESPANOL = "rock_espanol", "Rock en español"
         ELECTRONICA = "electronica", "Electrónica"
         CROSSOVER = "crossover", "Variado"
+        POPULAR = "popular", "Música popular"
+        BANDA = "banda", "Banda"
+        NORTENA = "nortena", "Norteña"
+        BACHATA = "bachata", "Bachata"
+        MERENGUE = "merengue", "Merengue"
+        TROPICAL = "tropical", "Tropical"
+        CHAMPETA = "champeta", "Champeta"
+        CORRIDOS = "corridos", "Corridos"
+        CUSTOM = "custom", "Otro (personalizado)"
 
     # django-tenants crea el esquema automáticamente al guardar el tenant.
     auto_create_schema = True
@@ -109,6 +118,12 @@ class Tenant(TenantMixin):
         choices=Genre.choices,
         default=Genre.CROSSOVER,
         help_text="Género del bar; el AutoDJ pide música acorde a este estilo.",
+    )
+    custom_genre = models.CharField(
+        "género personalizado",
+        max_length=100,
+        blank=True,
+        help_text="Texto libre usado por el AutoDJ cuando el género es 'custom' (ej. 'baladas románticas').",
     )
 
     created_at = models.DateTimeField("creado", auto_now_add=True)

@@ -351,6 +351,7 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
   const [plan, setPlan] = useState('pro')
   const [maxTables, setMaxTables] = useState('8')
   const [genre, setGenre] = useState('crossover')
+  const [customGenre, setCustomGenre] = useState('')
   const [withPayment, setWithPayment] = useState(true)
   const [amount, setAmount] = useState('60000')
   const [method, setMethod] = useState('cash')
@@ -385,6 +386,7 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
             phone,
             plan,
             genre,
+            custom_genre: genre === 'custom' ? customGenre : undefined,
             max_tables: tables,
             initial_amount: withPayment ? computedAmount : null,
             initial_method: method,
@@ -475,6 +477,15 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
             <option value="pop_latino">Pop latino</option>
             <option value="rock_espanol">Rock en español</option>
             <option value="electronica">Electrónica</option>
+            <option value="popular">Música popular</option>
+            <option value="banda">Banda</option>
+            <option value="nortena">Norteña</option>
+            <option value="bachata">Bachata</option>
+            <option value="merengue">Merengue</option>
+            <option value="tropical">Tropical</option>
+            <option value="champeta">Champeta</option>
+            <option value="corridos">Corridos</option>
+            <option value="custom">Otro (personalizado)</option>
           </select>
         </div>
         <div>
@@ -490,6 +501,17 @@ function CreateBarForm({ onDone }: { onDone: () => void }) {
           </div>
         </div>
       </div>
+
+      {genre === 'custom' && (
+        <label style={{ marginTop: 12 }}>Género personalizado</label>
+      )}
+      {genre === 'custom' && (
+        <input
+          value={customGenre}
+          onChange={(e) => setCustomGenre(e.target.value)}
+          placeholder="Ej. baladas románticas, norteño sax…"
+        />
+      )}
 
       <label style={{ marginTop: 12 }}>
         <input

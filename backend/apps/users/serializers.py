@@ -16,6 +16,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.models import Domain, Tenant
+from apps.payments.tasks import notify_new_bar_task, seed_tenant_catalog_task
 from apps.users.models import UserProfile
 
 User = get_user_model()
@@ -64,6 +65,7 @@ class TenantSerializer(serializers.ModelSerializer):
             "crossfade_enabled",
             "autodj_enabled",
             "genre",
+            "custom_genre",
             "monthly_total",
             "extra_tables",
         )
@@ -95,6 +97,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             "crossfade_enabled",
             "autodj_enabled",
             "genre",
+            "custom_genre",
         )
 
     def validate_requests_per_hour_limit(self, value):
@@ -153,6 +156,7 @@ class RegisterSerializer(serializers.Serializer):
     slug = serializers.CharField(required=False, allow_blank=True)
     plan = serializers.ChoiceField(choices=Tenant.Plan.choices, required=False, default=Tenant.Plan.PRO)
     genre = serializers.ChoiceField(choices=Tenant.Genre.choices, required=False, default=Tenant.Genre.CROSSOVER)
+    custom_genre = serializers.CharField(required=False, allow_blank=True, max_length=100)
 
     def validate_email(self, value):
         """Garantiza que el email no esté registrado previamente."""
@@ -193,6 +197,7 @@ class RegisterSerializer(serializers.Serializer):
             plan=validated_data.get("plan", Tenant.Plan.PRO),
             subscription_status=Tenant.SubscriptionStatus.TRIALING,
             genre=validated_data.get("genre", Tenant.Genre.CROSSOVER),
+            custom_genre=validated_data.get("custom_genre", ""),
         )
 
         # 2b. Aplica las migraciones al esquema recién creado. django-tenants
@@ -205,5 +210,15 @@ class RegisterSerializer(serializers.Serializer):
 
         # 4. Perfil que vincula al usuario con su tenant y rol de dueño.
         UserProfile.objects.create(user=user, tenant=tenant, role=UserProfile.Role.OWNER)
+
+        # 5. Siembra el catálogo y avisa por WhatsApp (asíncrono, best-effort).
+        try:
+            seed_tenant_catalog_task.delay(tenant.id)
+        except Exception:
+            pass
+        try:
+            notify_new_bar_task.delay(tenant.id)
+        except Exception:
+            pass
 
         return {"user": user, "tenant": tenant}

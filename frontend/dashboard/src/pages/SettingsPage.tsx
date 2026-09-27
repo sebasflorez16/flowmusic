@@ -127,9 +127,32 @@ export function SettingsPage() {
               <option value="pop_latino">Pop latino</option>
               <option value="rock_espanol">Rock en español</option>
               <option value="electronica">Electrónica</option>
+              <option value="popular">Música popular</option>
+              <option value="banda">Banda</option>
+              <option value="nortena">Norteña</option>
+              <option value="bachata">Bachata</option>
+              <option value="merengue">Merengue</option>
+              <option value="tropical">Tropical</option>
+              <option value="champeta">Champeta</option>
+              <option value="corridos">Corridos</option>
               <option value="crossover">Variado</option>
+              <option value="custom">Otro (personalizado)</option>
             </select>
           </div>
+
+          {form.genre === 'custom' && (
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-xs text-muted-foreground" htmlFor="custom_genre">
+                Escribe el género personalizado
+              </label>
+              <Input
+                id="custom_genre"
+                value={form.custom_genre}
+                onChange={(e) => update('custom_genre', e.target.value)}
+                placeholder="Ej. baladas románticas, norteño sax, rock clásico…"
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

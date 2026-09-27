@@ -15,6 +15,7 @@ export function RegisterForm({ initialPlan = 'pro', onClose }: RegisterFormProps
   const [phone, setPhone] = useState('')
   const [plan, setPlan] = useState<'pro' | 'premium'>(initialPlan)
   const [genre, setGenre] = useState('crossover')
+  const [customGenre, setCustomGenre] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -31,6 +32,7 @@ export function RegisterForm({ initialPlan = 'pro', onClose }: RegisterFormProps
         phone,
         plan,
         genre,
+        custom_genre: genre === 'custom' ? customGenre : undefined,
       })
       setDone(true)
     } catch (err) {
@@ -137,9 +139,32 @@ export function RegisterForm({ initialPlan = 'pro', onClose }: RegisterFormProps
             <option value="pop_latino">Pop latino</option>
             <option value="rock_espanol">Rock en español</option>
             <option value="electronica">Electrónica</option>
+            <option value="popular">Música popular</option>
+            <option value="banda">Banda</option>
+            <option value="nortena">Norteña</option>
+            <option value="bachata">Bachata</option>
+            <option value="merengue">Merengue</option>
+            <option value="tropical">Tropical</option>
+            <option value="champeta">Champeta</option>
+            <option value="corridos">Corridos</option>
+            <option value="custom">Otro (personalizado)</option>
           </select>
         </div>
       </div>
+
+      {genre === 'custom' && (
+        <label htmlFor="custom-genre" style={{ marginTop: 12 }}>
+          Escribe tu género
+        </label>
+      )}
+      {genre === 'custom' && (
+        <input
+          id="custom-genre"
+          value={customGenre}
+          onChange={(e) => setCustomGenre(e.target.value)}
+          placeholder="Ej. baladas románticas, norteño sax…"
+        />
+      )}
 
       {error && <p className="msg err" style={{ marginTop: 12 }}>{error}</p>}
 

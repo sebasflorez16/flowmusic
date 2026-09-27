@@ -10,6 +10,7 @@ from rest_framework import serializers
 
 from apps.core.models import Domain, PlanPrice, Tenant
 from apps.payments.models import Expense, Payment
+from apps.payments.tasks import notify_new_bar_task, seed_tenant_catalog_task
 from apps.users.models import UserProfile
 from apps.users.serializers import TenantSerializer
 
@@ -144,6 +145,7 @@ class AdminTenantCreateSerializer(serializers.Serializer):
     genre = serializers.ChoiceField(
         choices=Tenant.Genre.choices, required=False, default=Tenant.Genre.CROSSOVER
     )
+    custom_genre = serializers.CharField(required=False, allow_blank=True, max_length=100)
     # Número de mesas que habilita el superadmin/socio. Mínimo 8 (incluidas en
     # el plan); las mesas extra se cobran aparte (PlanPrice.extra_table_price).
     max_tables = serializers.IntegerField(required=False, min_value=8)
@@ -201,6 +203,7 @@ class AdminTenantCreateSerializer(serializers.Serializer):
             plan=plan,
             subscription_status=Tenant.SubscriptionStatus.TRIALING,
             genre=validated_data.get("genre", Tenant.Genre.CROSSOVER),
+            custom_genre=validated_data.get("custom_genre", ""),
             max_tables=max_tables,
             included_tables=included,
         )
@@ -208,6 +211,16 @@ class AdminTenantCreateSerializer(serializers.Serializer):
 
         Domain.objects.create(domain=f"{slug}.musicflow.com", tenant=tenant, is_primary=True)
         UserProfile.objects.create(user=user, tenant=tenant, role=UserProfile.Role.OWNER)
+
+        # Siembra el catálogo y avisa por WhatsApp (asíncrono, best-effort).
+        try:
+            seed_tenant_catalog_task.delay(tenant.id)
+        except Exception:
+            pass
+        try:
+            notify_new_bar_task.delay(tenant.id)
+        except Exception:
+            pass
 
         # 3. Pago inicial opcional: activa el bar inmediatamente.
         payment = None

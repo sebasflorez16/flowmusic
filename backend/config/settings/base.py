@@ -15,6 +15,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 # ---------------------------------------------------------------------------
 # Rutas base
@@ -247,6 +248,15 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
+# Tareas periódicas (requiere `celery beat`). Revisa a diario los bares que
+# facturan en ``BILLING_ALERT_DAYS_BEFORE`` días y avisa por WhatsApp.
+CELERY_BEAT_SCHEDULE = {
+    "check-billing-due-daily": {
+        "task": "apps.payments.tasks.check_billing_due_task",
+        "schedule": crontab(hour=9, minute=0),
+    },
+}
+
 # ---------------------------------------------------------------------------
 # Caché
 # ---------------------------------------------------------------------------
@@ -290,3 +300,25 @@ WOMPI_EVENTS_SECRET_KEY = env("WOMPI_EVENTS_SECRET_KEY", default="")
 WOMPI_INTEGRITY_KEY = env("WOMPI_INTEGRITY_KEY", default="")
 # Entorno de Wompi: "sandbox" (pruebas) o "production".
 WOMPI_ENV = env("WOMPI_ENV", default="sandbox")
+
+# ---------------------------------------------------------------------------
+# Alertas por WhatsApp (Twilio)
+# ---------------------------------------------------------------------------
+# Credenciales de Twilio. Mientras estén vacías, las alertas no se envían (el
+# sistema funciona normal; solo se omite la notificación).
+TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")
+# Número emisor de WhatsApp Business (formato "whatsapp:+1XXXXXXXXXX").
+TWILIO_FROM_WHATSAPP = env("TWILIO_FROM_WHATSAPP", default="")
+
+# Destinatarios de las alertas (números en formato internacional, sin "+").
+# - Facturación próxima (a N días): a todos.
+# - Bar nuevo: solo al primer número.
+BILLING_ALERT_RECIPIENTS = env.list(
+    "BILLING_ALERT_RECIPIENTS", default=["573223088873", "573132862002"]
+)
+NEW_BAR_ALERT_RECIPIENTS = env.list(
+    "NEW_BAR_ALERT_RECIPIENTS", default=["573223088873"]
+)
+# Cuántos días antes de la facturación se avisa.
+BILLING_ALERT_DAYS_BEFORE = env.int("BILLING_ALERT_DAYS_BEFORE", default=2)
