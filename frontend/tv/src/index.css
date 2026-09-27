@@ -101,6 +101,16 @@ body,
   background: rgba(139, 92, 246, 0.6);
 }
 
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.controls .mute-btn {
+  margin-top: 0;
+}
+
 .next {
   width: 320px;
   display: flex;

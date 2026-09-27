@@ -20,6 +20,8 @@ export interface AdminTenant {
   subscription_status: string
   next_billing_date: string | null
   last_payment: string | null
+  max_tables: number
+  included_tables: number
 }
 
 export interface OverdueBar {

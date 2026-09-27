@@ -121,6 +121,29 @@ export function PlaylistPage() {
     }
   }
 
+  /** Agrega una canción del catálogo al final de la cola (sin reproducir). */
+  const queueCatalog = async (item: PlaylistItem) => {
+    setQueueingId(item.youtube_id)
+    try {
+      await api('/music/queue-add-youtube/', {
+        method: 'POST',
+        body: JSON.stringify({
+          youtube_id: item.youtube_id,
+          title: item.title,
+          artist: item.artist,
+          duration_seconds: item.duration_seconds,
+          thumbnail_url: item.thumbnail_url,
+        }),
+      })
+      setQueueMsg(`✓ "${item.title}" agregada a la cola`)
+      setTimeout(() => setQueueMsg(null), 2500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo agregar a la cola')
+    } finally {
+      setQueueingId(null)
+    }
+  }
+
   const filtered = items.filter(
     (item) =>
       item.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -248,6 +271,16 @@ export function PlaylistPage() {
                     {item.autodj_approved ? 'AutoDJ' : 'Manual'}
                   </Badge>
                   <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => void queueCatalog(item)}
+                    disabled={queueingId === item.youtube_id}
+                    aria-label="Agregar a la cola"
+                    title="Agregar a la cola"
+                  >
+                    <ListPlus className="h-4 w-4" />
+                  </Button>
+                  <Button
                     variant="default"
                     size="icon"
                     onClick={() => void enqueuePlaylist(item.id)}
@@ -259,6 +292,10 @@ export function PlaylistPage() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {queueMsg && (
+            <p className="mt-3 text-sm text-emerald-500">{queueMsg}</p>
           )}
         </CardContent>
       </Card>

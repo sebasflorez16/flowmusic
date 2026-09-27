@@ -153,6 +153,7 @@ export default function App() {
                   <th>Nombre</th>
                   <th>Plan</th>
                   <th>Estado</th>
+                  <th>Mesas</th>
                   <th>Próxima facturación</th>
                   <th>Último pago</th>
                 </tr>
@@ -164,6 +165,9 @@ export default function App() {
                     <td>{t.plan}</td>
                     <td>
                       <StatusBadge status={t.subscription_status} />
+                    </td>
+                    <td>
+                      <MaxTablesCell tenant={t} onDone={load} />
                     </td>
                     <td>{t.next_billing_date ?? '—'}</td>
                     <td>{t.last_payment ? new Date(t.last_payment).toLocaleDateString('es-CO') : '—'}</td>
@@ -232,6 +236,54 @@ function StatusBadge({ status }: { status: string }) {
   }
   const [label, color] = map[status] ?? [status, 'amber']
   return <span className={`badge ${color}`}>{label}</span>
+}
+
+/** Editor inline del número de mesas de un bar (sin cambiar de plan). */
+function MaxTablesCell({ tenant, onDone }: { tenant: AdminTenant; onDone: () => void }) {
+  const [value, setValue] = useState(String(tenant.max_tables))
+  const [msg, setMsg] = useState('')
+
+  const save = async () => {
+    setMsg('')
+    try {
+      const parsed = Number(value)
+      if (!Number.isInteger(parsed) || parsed < tenant.included_tables) {
+        setMsg(`Mínimo ${tenant.included_tables}`)
+        return
+      }
+      await api(`/admin/tenants/${tenant.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ max_tables: parsed }),
+      })
+      setMsg('✓')
+      onDone()
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Error')
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <input
+        type="number"
+        min={tenant.included_tables}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        title={`Mesas incluidas en el plan: ${tenant.included_tables}`}
+        style={{ width: 70 }}
+      />
+      <button
+        className="btn ghost"
+        style={{ width: 'auto', marginTop: 0, padding: '6px 10px' }}
+        onClick={save}
+      >
+        Guardar
+      </button>
+      {msg && (
+        <span style={{ fontSize: 12, color: msg === '✓' ? 'var(--green)' : 'var(--red)' }}>{msg}</span>
+      )}
+    </div>
+  )
 }
 
 function Login({ onLogin }: { onLogin: (data: LoginResponse) => void }) {

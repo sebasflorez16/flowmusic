@@ -26,6 +26,7 @@ export function TVScreen() {
   const [muted, setMuted] = useState<boolean>(
     () => localStorage.getItem(MUTE_KEY) !== 'false',
   )
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const currentIdRef = useRef<number | null>(null)
   const queueRef = useRef<QueueItem[]>([])
@@ -70,6 +71,22 @@ export function TVScreen() {
       setMuted(true)
     }
   }
+
+  /** Entra/sale de pantalla completa (modo kiosco). */
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen()
+    } else {
+      void document.documentElement.requestFullscreen()
+    }
+  }
+
+  // Mantiene el estado del botón sincronizado con el Fullscreen API.
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
 
   /** Al cargar un video nuevo, restaura el estado de sonido que había. */
   const handleIframeLoad = () => {
@@ -347,9 +364,14 @@ export function TVScreen() {
           ) : (
             <div className="label">Cola vacía · esperando canciones…</div>
           )}
-          <button className="mute-btn" onClick={toggleMute}>
-            {muted ? '🔇 Activar sonido' : '🔊 Sonido activado'}
-          </button>
+          <div className="controls">
+            <button className="mute-btn" onClick={toggleMute}>
+              {muted ? '🔇 Activar sonido' : '🔊 Sonido activado'}
+            </button>
+            <button className="mute-btn" onClick={toggleFullscreen}>
+              {isFullscreen ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa'}
+            </button>
+          </div>
         </div>
 
         {upcoming.length > 0 && (
