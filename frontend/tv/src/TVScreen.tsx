@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '@/api'
 import type { QueueItem, TVSnapshot } from '@/types'
 
-/** Estado "finalizado" del reproductor de YouTube. */
+/** Estados del reproductor de YouTube (IFrame API). */
+const PLAYER_UNSTARTED = -1
 const PLAYER_ENDED = 0
+const PLAYER_PLAYING = 1
 /** Duración por defecto (seg) si la canción no trae duración. */
 const DEFAULT_DURATION = 180
 /** Clave de localStorage para recordar la preferencia de sonido. */
@@ -34,6 +36,8 @@ export function TVScreen() {
   const autodjRef = useRef(false)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const mutedRef = useRef(muted)
+  // Estado actual del reproductor (se actualiza con onStateChange).
+  const playerStateRef = useRef<number>(PLAYER_UNSTARTED)
   // Timestamp real en que empezó la canción actual (para el heartbeat).
   const startedAtRef = useRef<number>(Date.now())
   const durationRef = useRef<number>(DEFAULT_DURATION * 1000)
@@ -88,8 +92,18 @@ export function TVScreen() {
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
 
-  /** Al cargar un video nuevo, restaura el estado de sonido que había. */
+  /**
+   * Al cargar un video nuevo: fuerza el arranque y restaura el sonido.
+   *
+   * YouTube a veces ignora `autoplay=1` al cambiar de video (sobre todo si la
+   * pestaña perdió el foco), así que además del parámetro enviamos el comando
+   * `playVideo` varias veces, por si el reproductor tarda en estar listo.
+   */
   const handleIframeLoad = () => {
+    playerStateRef.current = PLAYER_UNSTARTED
+    for (const delay of [300, 900, 1600]) {
+      setTimeout(() => sendCommand('playVideo'), delay)
+    }
     if (!mutedRef.current) {
       // Reintenta el unmute unas pocas veces (el player puede tardar en estar listo).
       for (const delay of [400, 900, 1500]) {
@@ -102,6 +116,7 @@ export function TVScreen() {
   const markStart = (item: QueueItem) => {
     startedAtRef.current = Date.now()
     durationRef.current = (item.playlist_item.duration_seconds || DEFAULT_DURATION) * 1000
+    playerStateRef.current = PLAYER_UNSTARTED
   }
 
   /** Pide al AutoDJ una canción del género del bar cuando la cola queda vacía. */
@@ -178,8 +193,11 @@ export function TVScreen() {
         }
       )?.info
 
-      if (info?.eventType === 'onStateChange' && info.eventArgs?.playerState === PLAYER_ENDED) {
-        advanceRef.current()
+      if (info?.eventType === 'onStateChange') {
+        playerStateRef.current = info.eventArgs?.playerState ?? PLAYER_UNSTARTED
+        if (info.eventArgs?.playerState === PLAYER_ENDED) {
+          advanceRef.current()
+        }
       }
 
       // Error de YouTube (video no reproducible / embed bloqueado / eliminado):
@@ -205,11 +223,21 @@ export function TVScreen() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (currentIdRef.current === null) return
-      if (Date.now() - startedAtRef.current >= durationRef.current) {
+      if (
+        Date.now() - startedAtRef.current >= durationRef.current ||
+        playerStateRef.current === PLAYER_ENDED
+      ) {
         advanceRef.current()
+        return
+      }
+      // Autorrecuperación: si la canción debería estar sonando y no lo está
+      // (el navegador o YouTube ignoró el autoplay), la arranca de nuevo.
+      if (playerStateRef.current !== PLAYER_PLAYING) {
+        sendCommand('playVideo')
       }
     }, 3000)
     return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Al volver a la pestaña (visibilitychange), re-sincroniza: si la canción ya
@@ -219,10 +247,14 @@ export function TVScreen() {
       if (document.visibilityState !== 'visible') return
       if (currentIdRef.current !== null && Date.now() - startedAtRef.current >= durationRef.current) {
         advanceRef.current()
+      } else if (currentIdRef.current !== null) {
+        // Al volver a la pestaña, reanuda por si el navegador la había pausado.
+        sendCommand('playVideo')
       }
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /** Carga la cola desde el backend. */
