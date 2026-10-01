@@ -158,11 +158,14 @@ export function TableView() {
   return (
     <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Encabezado */}
-      <header className="glass" style={{ padding: 16 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700 }}>{snapshot.bar_name}</h1>
-        <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 2 }}>
-          Mesa {snapshot.table_number} · Música en vivo
-        </p>
+      <header className="glass" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <img src="/logo-solo.png" alt="MusicFlow" style={{ height: 42, width: 42, flexShrink: 0 }} />
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>{snapshot.bar_name}</h1>
+          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 2 }}>
+            Mesa {snapshot.table_number} · Música en vivo
+          </p>
+        </div>
       </header>
 
       {/* Mensaje de marketing rotativo (uno a la vez) */}

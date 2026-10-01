@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  Disc3,
   ListMusic,
   Megaphone,
   Music2,
@@ -33,9 +32,7 @@ export function Sidebar() {
     <aside className="glass sticky top-0 flex h-screen w-64 flex-col border-r p-4">
       {/* Logo */}
       <div className="mb-8 flex items-center gap-2 px-2 pt-2">
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-primary to-secondary">
-          <Disc3 className="h-5 w-5 text-white" />
-        </div>
+        <img src="/logo-solo.png" alt="MusicFlow" className="h-10 w-10 shrink-0" />
         <div className="leading-tight">
           <p className="text-sm font-bold">MusicFlow</p>
           <p className="text-xs text-muted-foreground">Panel del dueño</p>

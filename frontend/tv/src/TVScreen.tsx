@@ -336,7 +336,10 @@ export function TVScreen() {
             onLoad={handleIframeLoad}
           />
         ) : (
-          <div className="empty-tv">Cola vacía · esperando canciones…</div>
+          <div className="empty-tv">
+            <img src="/logo-solo.png" alt="MusicFlow" className="tv-logo" />
+            <p>Cola vacía · esperando canciones…</p>
+          </div>
         )}
       </div>
 
@@ -376,7 +379,9 @@ export function TVScreen() {
 
         {upcoming.length > 0 && (
           <div className="next">
-            <h3>Próximas</h3>
+            <h3>
+              <img src="/logo-solo.png" alt="" className="tv-mini-logo" /> Próximas
+            </h3>
             {upcoming.slice(0, 4).map((item) => (
               <div key={item.id} className="next-item">
                 <span className="pos">{item.position}</span>

@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 
-import { Disc3 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -46,9 +45,7 @@ export function LoginPage() {
       <form onSubmit={handleSubmit} className="glass w-full max-w-sm space-y-4 rounded-2xl p-8 shadow-glass">
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-primary to-secondary">
-            <Disc3 className="h-6 w-6 text-white" />
-          </div>
+          <img src="/logo-solo.png" alt="MusicFlow" className="h-16 w-16" />
           <h1 className="text-xl font-bold">MusicFlow</h1>
           <p className="text-sm text-muted-foreground">Panel del dueño</p>
         </div>

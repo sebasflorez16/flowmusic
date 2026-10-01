@@ -10,7 +10,7 @@ export default function App() {
       <div className="wrap">
         <nav>
           <div className="brand">
-            <span className="dot">🎵</span> MusicFlow
+            <img src="/logo-letra.png" alt="MusicFlow" style={{ height: 30 }} />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <a className="btn ghost" href="#planes">

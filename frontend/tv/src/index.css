@@ -37,11 +37,27 @@ body,
 .empty-tv {
   width: 100%;
   height: 100%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
   font-size: 28px;
   color: #94a3b8;
   background: radial-gradient(circle at center, #14131f, #000);
+}
+
+.tv-logo {
+  width: 200px;
+  height: auto;
+  opacity: 0.95;
+}
+
+.tv-mini-logo {
+  height: 16px;
+  width: 16px;
+  vertical-align: middle;
+  margin-right: 6px;
 }
 
 /* Overlay inferior con la información de la canción y próximas. */
