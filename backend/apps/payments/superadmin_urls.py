@@ -13,6 +13,13 @@ from apps.payments.superadmin_views import (
     StaffListView,
     SummaryView,
 )
+from apps.payments.vendor_views import (
+    VendorDetailView,
+    VendorListView,
+    VendorMeTenantCreateView,
+    VendorMeView,
+    VendorPayoutCreateView,
+)
 
 urlpatterns = [
     path("admin/summary/", SummaryView.as_view(), name="admin-summary"),
@@ -24,4 +31,15 @@ urlpatterns = [
     path("admin/staff/", StaffCreateView.as_view(), name="admin-staff"),
     path("admin/staff/list/", StaffListView.as_view(), name="admin-staff-list"),
     path("admin/plan-prices/", PlanPriceListCreateView.as_view(), name="admin-plan-prices"),
+    # Mercaderistas (gestión: superadmin + socio).
+    path("admin/vendors/", VendorListView.as_view(), name="admin-vendors"),
+    path("admin/vendors/<int:pk>/", VendorDetailView.as_view(), name="admin-vendor-detail"),
+    path(
+        "admin/vendors/<int:pk>/payouts/",
+        VendorPayoutCreateView.as_view(),
+        name="admin-vendor-payouts",
+    ),
+    # Panel del propio mercaderista.
+    path("vendor/me/", VendorMeView.as_view(), name="vendor-me"),
+    path("vendor/me/tenants/", VendorMeTenantCreateView.as_view(), name="vendor-me-tenants"),
 ]

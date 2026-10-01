@@ -6,6 +6,7 @@
   tenant para que el middleware de django-tenants resuelva el tenant correcto.
 """
 
+from django.conf import settings
 from django.db import models
 from django_tenants.models import DomainMixin, TenantMixin
 
@@ -124,6 +125,17 @@ class Tenant(TenantMixin):
         max_length=100,
         blank=True,
         help_text="Texto libre usado por el AutoDJ cuando el género es 'custom' (ej. 'baladas románticas').",
+    )
+
+    # --- Afiliación comercial -------------------------------------------------
+    vendor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="brought_tenants",
+        verbose_name="vendedor",
+        help_text="Mercaderista que trajo/afilió este bar (vacío si fue directo).",
     )
 
     created_at = models.DateTimeField("creado", auto_now_add=True)

@@ -1,6 +1,6 @@
 /** Tipos del panel del superadmin. */
 
-export type Role = 'superadmin' | 'socio'
+export type Role = 'superadmin' | 'socio' | 'vendedor'
 
 export interface Summary {
   income: number
@@ -39,6 +39,47 @@ export interface Staff {
   role: string
   is_active: boolean
   date_joined: string
+}
+
+/** Bar afiliado por un mercaderista. */
+export interface VendorBar {
+  id: number
+  name: string
+  plan: string
+  subscription_status: string
+  monthly_total: number
+}
+
+/** Mes liquidado de un mercaderista (ventas + comisión). */
+export interface VendorMonth {
+  period: string
+  sales: number
+  commission: number
+  paid: boolean
+}
+
+/** Panel completo de un mercaderista. */
+export interface VendorDashboard {
+  id: number
+  email: string
+  commission_rate: string
+  is_active: boolean
+  bars_count: number
+  bars: VendorBar[]
+  current: VendorMonth | null
+  history: VendorMonth[]
+}
+
+/** Fila de la lista de mercaderistas (gestión). */
+export interface VendorSummary {
+  id: number
+  email: string
+  commission_rate: string
+  is_active: boolean
+  bars_count: number
+  month_sales: number
+  month_commission: number
+  current_period_paid: boolean
 }
 
 export interface LoginResponse {

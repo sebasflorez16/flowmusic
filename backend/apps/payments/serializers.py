@@ -206,6 +206,8 @@ class AdminTenantCreateSerializer(serializers.Serializer):
             custom_genre=validated_data.get("custom_genre", ""),
             max_tables=max_tables,
             included_tables=included,
+            # Cuando un mercaderista crea el bar, queda asignado a él (contexto).
+            vendor=self.context.get("vendor"),
         )
         call_command("migrate_schemas", schema_name=tenant.schema_name, interactive=False, verbosity=0)
 
