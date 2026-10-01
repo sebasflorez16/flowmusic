@@ -25,7 +25,7 @@ from apps.tenants.music.serializers import (
     QueueItemSerializer,
     SongRequestSerializer,
 )
-from apps.tenants.music.utils import is_recently_played
+from apps.tenants.music.utils import is_recently_played, recently_played_ids
 from apps.tenants.music.yt_cache import cached_embeddable, cached_search
 from apps.tenants.tables.models import Table
 
@@ -38,25 +38,28 @@ ACTIVE_STATUSES = ("approved", "playing")
 MIN_AUTODJ_DURATION = 90
 MAX_AUTODJ_DURATION = 600
 
-# Consulta de búsqueda por género para el AutoDJ (música acorde al estilo del bar).
-GENRE_QUERIES = {
-    "vallenato": "vallenatos exitos",
-    "reggaeton": "reggaeton exitos",
-    "salsa": "salsa exitos",
-    "cumbia": "cumbias exitos",
-    "ranchera": "rancheras exitos",
-    "pop_latino": "pop latino exitos",
-    "rock_espanol": "rock en español exitos",
-    "electronica": "electronica exitos",
-    "crossover": "exitos musica variada",
-    "popular": "musica popular colombiana exitos",
-    "banda": "banda corridos exitos",
-    "nortena": "nortenas corridos exitos",
-    "bachata": "bachata exitos",
-    "merengue": "merengue exitos",
-    "tropical": "musica tropical salsa exitos",
-    "champeta": "champeta exitos",
-    "corridos": "corridos tumbados exitos",
+# Consultas de búsqueda por género para el AutoDJ. Cada género tiene la consulta
+# general + artistas representativos: los resultados genéricos traen sobre todo
+# compilaciones, mientras que las búsquedas por artista devuelven canciones
+# individuales (que es lo que queremos reproducir).
+GENRE_QUERIES: dict[str, list[str]] = {
+    "vallenato": ["vallenatos exitos", "diomedes diaz", "jorge celedon", "silvestre dangond", "los diablitos"],
+    "reggaeton": ["reggaeton exitos", "bad bunny", "karol g", "feid", "j balvin"],
+    "salsa": ["salsa exitos", "marc anthony", "grupo niche", "hector lavoe", "ruben blades"],
+    "cumbia": ["cumbias exitos", "los angeles azules", "sonora dinamita", "rodolfo aicardi", "gilda"],
+    "ranchera": ["rancheras exitos", "vicente fernandez", "juan gabriel", "pedro infante", "alejandro fernandez"],
+    "pop_latino": ["pop latino exitos", "shakira", "ricky martin", "carlos vives", "juanes"],
+    "rock_espanol": ["rock en español exitos", "soda stereo", "mana", "enrique bunbury", "caifanes"],
+    "electronica": ["electronica exitos", "avicii", "david guetta", "calvin harris", "tiesto"],
+    "crossover": ["exitos musica variada", "canciones populares"],
+    "popular": ["musica popular colombiana exitos", "paola jara", "arelys henao", "jhonny rivera", "pipe bueno"],
+    "banda": ["banda exitos", "calibre 50", "la arrolladora", "julion alvarez", "gerardo ortiz"],
+    "nortena": ["nortenas exitos", "los tigres del norte", "intocable", "ramon ayala", "pesado"],
+    "bachata": ["bachata exitos", "romeo santos", "aventura", "prince royce", "frank reyes"],
+    "merengue": ["merengue exitos", "elvis crespo", "olga tanon", "juan luis guerra", "sergio vargas"],
+    "tropical": ["musica tropical exitos", "grupo niche", "los angeles azules", "pastor lopez", "joe arroyo"],
+    "champeta": ["champeta exitos", "el afinaito", "kevin flores", "twister el rey", "zaider"],
+    "corridos": ["corridos tumbados exitos", "peso pluma", "natanael cano", "grupo firme", "junior h"],
 }
 
 # Palabras clave por género para filtrar resultados de YouTube y asegurar que la
@@ -105,19 +108,19 @@ def _matches_genre(result: dict, genre: str) -> bool:
     return any(k in haystack for k in keywords)
 
 
-def _autodj_query(tenant) -> str:
-    """Devuelve la consulta de búsqueda del AutoDJ según el género del bar.
+def _autodj_queries(tenant) -> list[str]:
+    """Consultas de búsqueda del AutoDJ según el género del bar.
 
     Si el género es ``custom`` se usa el texto libre ``custom_genre`` del dueño.
     """
     if tenant.genre == Tenant.Genre.CUSTOM:
         custom = (tenant.custom_genre or "").strip()
         if custom:
-            return custom
+            return [custom]
     return GENRE_QUERIES.get(tenant.genre, GENRE_QUERIES["crossover"])
 
 
-def seed_catalog_by_genre(tenant, limit: int = 10) -> int:
+def seed_catalog_by_genre(tenant, limit: int = 20) -> int:
     """Siembra el catálogo del tenant con canciones populares de su género.
 
     Best-effort: si la búsqueda en YouTube falla o no hay resultados válidos,
@@ -125,33 +128,37 @@ def seed_catalog_by_genre(tenant, limit: int = 10) -> int:
     Se ejecuta dentro del esquema del tenant porque ``PlaylistItem`` es un
     modelo por-tenant.
     """
-    query = _autodj_query(tenant)
-    if not query:
-        return 0
-
-    results = cached_search(query, limit=20)
-    if not results:
+    queries = _autodj_queries(tenant)
+    if not queries:
         return 0
 
     created = 0
+    seen: set[str] = set()
     with schema_context(tenant.schema_name):
-        for r in results:
+        for query in queries:
             if created >= limit:
                 break
-            if not _is_normal_song(r):
-                continue
-            _, was_created = PlaylistItem.objects.get_or_create(
-                youtube_id=r["youtube_id"],
-                defaults={
-                    "title": r["title"],
-                    "artist": r["artist"],
-                    "thumbnail_url": r["thumbnail_url"],
-                    "duration_seconds": r.get("duration_seconds", 0) or 0,
-                    "autodj_approved": True,
-                },
-            )
-            if was_created:
-                created += 1
+            for r in cached_search(query, limit=25):
+                if created >= limit:
+                    break
+                youtube_id = r["youtube_id"]
+                if youtube_id in seen:
+                    continue
+                seen.add(youtube_id)
+                if not _is_normal_song(r):
+                    continue
+                _, was_created = PlaylistItem.objects.get_or_create(
+                    youtube_id=youtube_id,
+                    defaults={
+                        "title": r["title"],
+                        "artist": r["artist"],
+                        "thumbnail_url": r["thumbnail_url"],
+                        "duration_seconds": r.get("duration_seconds", 0) or 0,
+                        "autodj_approved": True,
+                    },
+                )
+                if was_created:
+                    created += 1
     return created
 
 
@@ -382,13 +389,14 @@ class ClientAutoDJView(APIView):
                 status=QueueItem.Status.PLAYED, played_at=timezone.now()
             )
 
-            # Busca música acorde al género registrado del bar (o al género
-            # personalizado del dueño si el género es "custom").
-            query = _autodj_query(tenant)
-
-            pools: list[list[dict]] = []
-            if query:
-                pools.append(cached_search(query, limit=25))
+            # Busca música del género del bar (o el género personalizado del
+            # dueño). Usa 2 consultas al azar (genérica + artista) para tener más
+            # candidatos y variar; la caché las sirve casi sin costo.
+            queries = _autodj_queries(tenant)
+            pools: list[list[dict]] = [
+                cached_search(q, limit=25)
+                for q in random.sample(queries, min(2, len(queries)))
+            ]
 
             # 1) Filtra por duración normal + no repetida recientemente.
             normal = [
@@ -423,24 +431,35 @@ class ClientAutoDJView(APIView):
                     pick = candidate
                     break
 
-            if pick is None:
-                return Response(_tv_snapshot(tenant))
-
-            playlist_item, _ = PlaylistItem.objects.get_or_create(
-                youtube_id=pick["youtube_id"],
-                defaults={
-                    "title": pick["title"],
-                    "artist": pick["artist"],
-                    "duration_seconds": pick.get("duration_seconds", 0) or 0,
-                    "thumbnail_url": pick["thumbnail_url"],
-                },
-            )
-            # Si la canción ya existía pero sin duración (creada por una petición
-            # del cliente que no traía duración), la completamos ahora para que
-            # la TV corte exactamente cuando termina.
-            if not playlist_item.duration_seconds and (pick.get("duration_seconds") or 0):
-                playlist_item.duration_seconds = pick["duration_seconds"]
-                playlist_item.save(update_fields=["duration_seconds"])
+            playlist_item = None
+            if pick is not None:
+                playlist_item, _ = PlaylistItem.objects.get_or_create(
+                    youtube_id=pick["youtube_id"],
+                    defaults={
+                        "title": pick["title"],
+                        "artist": pick["artist"],
+                        "duration_seconds": pick.get("duration_seconds", 0) or 0,
+                        "thumbnail_url": pick["thumbnail_url"],
+                    },
+                )
+                # Si la canción ya existía pero sin duración (creada por una
+                # petición del cliente que no traía duración), la completamos
+                # ahora para que la TV corte exactamente cuando termina.
+                if not playlist_item.duration_seconds and (pick.get("duration_seconds") or 0):
+                    playlist_item.duration_seconds = pick["duration_seconds"]
+                    playlist_item.save(update_fields=["duration_seconds"])
+            else:
+                # Respaldo: YouTube no dio nada (bloqueo/limitación/sin
+                # resultados). Reproducimos del catálogo local del bar —que se
+                # siembra por género— para que la música NUNCA se detenga.
+                recent_ids = recently_played_ids()
+                base = PlaylistItem.objects.exclude(youtube_id__in=recent_ids)
+                playlist_item = (
+                    base.filter(autodj_approved=True).order_by("-play_count").first()
+                    or base.order_by("-play_count").first()
+                )
+                if playlist_item is None:
+                    return Response(_tv_snapshot(tenant))
 
             QueueItem.objects.create(
                 playlist_item=playlist_item,

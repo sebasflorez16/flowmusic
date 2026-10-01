@@ -14,6 +14,15 @@ INNERTUBE_URL = "https://www.youtube.com/youtubei/v1/search"
 INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
 
 
+class YouTubeError(Exception):
+    """Error al consultar YouTube (red, HTTP o formato inesperado).
+
+    Se lanza ante fallos que pueden indicar un bloqueo temporal (429/5xx,
+    errores de conexión o respuestas no-JSON), para que la capa de caché pueda
+    activar el disyuntor.
+    """
+
+
 def _context() -> dict:
     """Construye el contexto del cliente web para la petición."""
     return {
@@ -71,8 +80,8 @@ def search_youtube(query: str, limit: int = 10) -> list[dict]:
         )
         response.raise_for_status()
         data = response.json()
-    except (requests.RequestException, ValueError):
-        return []
+    except (requests.RequestException, ValueError) as exc:
+        raise YouTubeError(str(exc)) from exc
 
     results: list[dict] = []
     try:
@@ -127,8 +136,8 @@ def related_videos(video_id: str, limit: int = 10) -> list[dict]:
         )
         response.raise_for_status()
         data = response.json()
-    except (requests.RequestException, ValueError):
-        return []
+    except (requests.RequestException, ValueError) as exc:
+        raise YouTubeError(str(exc)) from exc
 
     results: list[dict] = []
     try:
@@ -209,16 +218,25 @@ def is_embeddable(video_id: str) -> bool:
             params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"},
             timeout=10,
         )
-        return response.status_code == 200
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        raise YouTubeError(str(exc)) from exc
+
+    if response.status_code == 200:
+        return True
+    if response.status_code in (401, 404):
         return False
+    # 429 / 403 / 5xx: posible bloqueo temporal → señal para el disyuntor.
+    raise YouTubeError(f"oembed {response.status_code}")
 
 
 def fetch_youtube_metadata(video_id: str) -> tuple[str, str]:
     """Consulta el oEmbed de YouTube para obtener título y autor.
 
     Returns:
-        Tupla (title, author). Devuelve cadenas vacías si falla la consulta.
+        Tupla (title, author). Devuelve cadenas vacías si el video no existe.
+
+    Raises:
+        YouTubeError: ante un fallo de red o un posible bloqueo (429/5xx).
     """
     try:
         response = requests.get(
@@ -226,9 +244,15 @@ def fetch_youtube_metadata(video_id: str) -> tuple[str, str]:
             params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"},
             timeout=10,
         )
-        if response.ok:
+    except requests.RequestException as exc:
+        raise YouTubeError(str(exc)) from exc
+
+    if response.ok:
+        try:
             data = response.json()
-            return data.get("title", ""), data.get("author_name", "")
-    except (requests.RequestException, ValueError):
-        pass
-    return "", ""
+        except ValueError as exc:
+            raise YouTubeError(str(exc)) from exc
+        return data.get("title", ""), data.get("author_name", "")
+    if response.status_code in (401, 404):
+        return "", ""
+    raise YouTubeError(f"oembed {response.status_code}")

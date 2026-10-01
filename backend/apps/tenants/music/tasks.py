@@ -22,7 +22,9 @@ def warm_youtube_cache() -> int:
     Returns:
         Número total de resultados guardados en caché.
     """
-    queries: set[str] = set(GENRE_QUERIES.values())
+    queries: set[str] = set()
+    for query_list in GENRE_QUERIES.values():
+        queries.update(query_list)
 
     custom = (
         Tenant.objects.filter(genre=Tenant.Genre.CUSTOM)

@@ -283,6 +283,13 @@ YT_RELATED_TTL = env.int("YT_RELATED_TTL", default=3600)  # 1 hora
 YT_EMBEDDABLE_TTL = env.int("YT_EMBEDDABLE_TTL", default=86400)  # 24 horas
 YT_META_TTL = env.int("YT_META_TTL", default=86400)  # 24 horas
 
+# --- Protección de YouTube (limitador + disyuntor) ---
+# Máximo de llamadas por segundo a YouTube (el excedente se sirve de caché).
+YT_MAX_CALLS_PER_SEC = env.int("YT_MAX_CALLS_PER_SEC", default=5)
+# Fallos seguidos que abren el disyuntor y cuánto dura abierto (segundos).
+YT_CIRCUIT_FAILS = env.int("YT_CIRCUIT_FAILS", default=12)
+YT_CIRCUIT_COOLDOWN = env.int("YT_CIRCUIT_COOLDOWN", default=300)
+
 # ---------------------------------------------------------------------------
 # Channels (WebSockets)
 # ---------------------------------------------------------------------------

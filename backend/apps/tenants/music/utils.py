@@ -32,3 +32,19 @@ def is_recently_played(youtube_id: str, hours: int = 2) -> bool:
         )
         .exists()
     )
+
+
+def recently_played_ids(hours: int = 2) -> set[str]:
+    """IDs de YouTube que sonaron o están en cola dentro de las últimas horas.
+
+    Se usa para no repetir canciones al elegir del catálogo local (respaldo del
+    AutoDJ cuando YouTube no está disponible).
+    """
+    cutoff = timezone.now() - timedelta(hours=hours)
+    return set(
+        QueueItem.objects.filter(status__in=RECENT_STATUSES)
+        .filter(
+            Q(played_at__gte=cutoff) | Q(started_at__gte=cutoff) | Q(created_at__gte=cutoff)
+        )
+        .values_list("playlist_item__youtube_id", flat=True)
+    )
