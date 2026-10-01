@@ -7,7 +7,6 @@ oEmbed de YouTube para autocompletarlo.
 
 import re
 
-import requests
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
@@ -22,6 +21,7 @@ from apps.tenants.music.serializers import (
     SongRequestSerializer,
 )
 from apps.tenants.music.utils import is_recently_played
+from apps.tenants.music.yt_cache import cached_metadata
 
 # Detecta el ID de YouTube en distintos formatos de URL.
 YOUTUBE_ID_RE = re.compile(
@@ -43,27 +43,6 @@ def extract_youtube_id(value: str) -> str:
     if not match:
         raise ValidationError("No se pudo extraer un ID de YouTube válido.")
     return match.group(1)
-
-
-def fetch_youtube_metadata(youtube_id: str) -> tuple[str, str]:
-    """Consulta el oEmbed de YouTube para obtener título y autor.
-
-    Returns:
-        Tupla (title, author). Devuelve cadenas vacías si falla la consulta.
-    """
-    try:
-        url = f"https://www.youtube.com/watch?v={youtube_id}"
-        response = requests.get(
-            "https://www.youtube.com/oembed",
-            params={"url": url, "format": "json"},
-            timeout=10,
-        )
-        if response.ok:
-            data = response.json()
-            return data.get("title", ""), data.get("author_name", "")
-    except requests.RequestException:
-        pass
-    return "", ""
 
 
 class PlaylistListCreateView(generics.ListCreateAPIView):
@@ -88,7 +67,7 @@ class PlaylistListCreateView(generics.ListCreateAPIView):
         data["youtube_id"] = youtube_id
 
         if not data.get("title"):
-            title, author = fetch_youtube_metadata(youtube_id)
+            title, author = cached_metadata(youtube_id)
             data["title"] = title
             if author and not data.get("artist"):
                 data["artist"] = author
@@ -453,7 +432,7 @@ class PlayYouTubeView(APIView):
         title = request.data.get("title", "")
         artist = request.data.get("artist", "")
         if not title:
-            title, author = fetch_youtube_metadata(youtube_id)
+            title, author = cached_metadata(youtube_id)
             artist = artist or author
 
         duration = request.data.get("duration_seconds", 0) or 0
@@ -519,7 +498,7 @@ class QueueAddYouTubeView(APIView):
         title = request.data.get("title", "")
         artist = request.data.get("artist", "")
         if not title:
-            title, author = fetch_youtube_metadata(youtube_id)
+            title, author = cached_metadata(youtube_id)
             artist = artist or author
 
         duration = request.data.get("duration_seconds", 0) or 0

@@ -212,3 +212,23 @@ def is_embeddable(video_id: str) -> bool:
         return response.status_code == 200
     except requests.RequestException:
         return False
+
+
+def fetch_youtube_metadata(video_id: str) -> tuple[str, str]:
+    """Consulta el oEmbed de YouTube para obtener título y autor.
+
+    Returns:
+        Tupla (title, author). Devuelve cadenas vacías si falla la consulta.
+    """
+    try:
+        response = requests.get(
+            "https://www.youtube.com/oembed",
+            params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"},
+            timeout=10,
+        )
+        if response.ok:
+            data = response.json()
+            return data.get("title", ""), data.get("author_name", "")
+    except (requests.RequestException, ValueError):
+        pass
+    return "", ""

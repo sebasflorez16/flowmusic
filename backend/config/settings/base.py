@@ -255,6 +255,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.payments.tasks.check_billing_due_task",
         "schedule": crontab(hour=9, minute=0),
     },
+    # Calienta la caché de YouTube cada 15 min para que el AutoDJ casi no llame
+    # a YouTube en tiempo real (número de llamadas constante, no por bar).
+    "warm-youtube-cache": {
+        "task": "apps.tenants.music.tasks.warm_youtube_cache",
+        "schedule": crontab(minute="*/15"),
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -269,6 +275,13 @@ CACHES = {
         "LOCATION": "musicflow",
     }
 }
+
+# TTLs de la caché de YouTube (segundos). La caché se calienta por género desde
+# Celery para que el AutoDJ casi no llame a YouTube en tiempo real.
+YT_SEARCH_TTL = env.int("YT_SEARCH_TTL", default=1200)  # 20 min
+YT_RELATED_TTL = env.int("YT_RELATED_TTL", default=3600)  # 1 hora
+YT_EMBEDDABLE_TTL = env.int("YT_EMBEDDABLE_TTL", default=86400)  # 24 horas
+YT_META_TTL = env.int("YT_META_TTL", default=86400)  # 24 horas
 
 # ---------------------------------------------------------------------------
 # Channels (WebSockets)

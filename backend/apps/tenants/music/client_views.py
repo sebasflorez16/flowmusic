@@ -9,7 +9,6 @@ dentro del esquema de ese tenant usando ``schema_context``.
 from datetime import timedelta
 import random
 
-from django.core.cache import cache
 from django.utils import timezone
 from django_tenants.utils import schema_context
 from rest_framework import permissions, status
@@ -26,8 +25,8 @@ from apps.tenants.music.serializers import (
     QueueItemSerializer,
     SongRequestSerializer,
 )
-from apps.tenants.music.youtube import is_embeddable, related_videos, search_youtube
 from apps.tenants.music.utils import is_recently_played
+from apps.tenants.music.yt_cache import cached_embeddable, cached_search
 from apps.tenants.tables.models import Table
 
 # Estados de la cola considerados activos (esperando o reproduciendo).
@@ -130,7 +129,7 @@ def seed_catalog_by_genre(tenant, limit: int = 10) -> int:
     if not query:
         return 0
 
-    results = search_youtube(query, limit=20)
+    results = cached_search(query, limit=20)
     if not results:
         return 0
 
@@ -173,27 +172,18 @@ class ClientSearchView(APIView):
     """Busca videos en YouTube (Innertube) para el buscador del cliente.
 
     No requiere login ni tenant: la búsqueda es global sobre YouTube. Los
-    resultados se cachean para reducir llamadas a la API externa.
+    resultados se cachean (ver ``yt_cache``) para reducir llamadas a YouTube.
     """
 
     authentication_classes = []
     permission_classes = [permissions.AllowAny]
-    CACHE_TTL = 1800  # 30 minutos
 
     def get(self, request):
         """Devuelve resultados de YouTube para la consulta ``q``, con caché."""
-        query = request.query_params.get("q", "").strip().lower()
+        query = request.query_params.get("q", "").strip()
         if not query:
             return Response([])
-
-        cache_key = f"youtube_search:{query}"
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return Response(cached)
-
-        results = search_youtube(query)
-        cache.set(cache_key, results, self.CACHE_TTL)
-        return Response(results)
+        return Response(cached_search(query))
 
 
 class ClientTableDetailView(APIView):
@@ -398,7 +388,7 @@ class ClientAutoDJView(APIView):
 
             pools: list[list[dict]] = []
             if query:
-                pools.append(search_youtube(query, limit=25))
+                pools.append(cached_search(query, limit=25))
 
             # 1) Filtra por duración normal + no repetida recientemente.
             normal = [
@@ -416,7 +406,7 @@ class ClientAutoDJView(APIView):
             #    (solo entonces, para no demorar la búsqueda principal).
             if not candidate_pool:
                 for fb in ["exitos del momento", "canciones populares 2025"]:
-                    results = search_youtube(fb, limit=25)
+                    results = cached_search(fb, limit=25)
                     fb_normal = [
                         r for r in results
                         if _is_normal_song(r) and not is_recently_played(r["youtube_id"])
@@ -429,7 +419,7 @@ class ClientAutoDJView(APIView):
 
             pick = None
             for candidate in candidate_pool[:8]:
-                if is_embeddable(candidate["youtube_id"]):
+                if cached_embeddable(candidate["youtube_id"]):
                     pick = candidate
                     break
 
