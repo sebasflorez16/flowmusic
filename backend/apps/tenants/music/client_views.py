@@ -6,8 +6,9 @@ el ``slug`` del bar (incluido en la URL del QR) y las consultas se ejecutan
 dentro del esquema de ese tenant usando ``schema_context``.
 """
 
-from datetime import timedelta
+import logging
 import random
+from datetime import timedelta
 
 from django.utils import timezone
 from django_tenants.utils import schema_context
@@ -28,6 +29,8 @@ from apps.tenants.music.serializers import (
 from apps.tenants.music.utils import is_recently_played, recently_played_ids
 from apps.tenants.music.yt_cache import cached_embeddable, cached_search
 from apps.tenants.tables.models import Table
+
+logger = logging.getLogger(__name__)
 
 # Estados de la cola considerados activos (esperando o reproduciendo).
 ACTIVE_STATUSES = ("approved", "playing")
@@ -282,6 +285,7 @@ class ClientRequestView(APIView):
                     },
                 )
             except Exception:
+                logger.warning("No se pudo registrar la canción pedida por QR", exc_info=True)
                 return Response(
                     {"detail": "No se pudo registrar la canción."},
                     status=status.HTTP_400_BAD_REQUEST,

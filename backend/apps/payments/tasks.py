@@ -1,5 +1,6 @@
 """Tareas asíncronas (Celery) de notificaciones, siembra y facturación."""
 
+import logging
 from datetime import timedelta
 
 from celery import shared_task
@@ -8,6 +9,8 @@ from django.utils import timezone
 
 from apps.core.models import Tenant
 from apps.payments import notifications
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -36,6 +39,7 @@ def seed_tenant_catalog_task(tenant_id: int) -> int:
     try:
         return seed_catalog_by_genre(tenant)
     except Exception:
+        logger.warning("Fallo al sembrar el catálogo del tenant %s", tenant_id, exc_info=True)
         return 0
 
 

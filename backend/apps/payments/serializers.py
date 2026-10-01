@@ -1,5 +1,6 @@
 """Serializers de la API del superadmin (financiero y gestión)."""
 
+import logging
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -15,6 +16,7 @@ from apps.users.models import UserProfile
 from apps.users.serializers import TenantSerializer
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class PlanPriceSerializer(serializers.ModelSerializer):
@@ -218,11 +220,11 @@ class AdminTenantCreateSerializer(serializers.Serializer):
         try:
             seed_tenant_catalog_task.delay(tenant.id)
         except Exception:
-            pass
+            logger.warning("No se pudo encolar la siembra del catálogo (tenant %s)", tenant.id, exc_info=True)
         try:
             notify_new_bar_task.delay(tenant.id)
         except Exception:
-            pass
+            logger.warning("No se pudo encolar el aviso de bar nuevo (tenant %s)", tenant.id, exc_info=True)
 
         # 3. Pago inicial opcional: activa el bar inmediatamente.
         payment = None

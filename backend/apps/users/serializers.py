@@ -5,6 +5,7 @@ devuelve el JWT (access/refresh) junto con el tenant asociado; el registro crea
 el usuario, su tenant (con esquema propio) y el perfil de dueño.
 """
 
+import logging
 import secrets
 
 from django.contrib.auth import get_user_model
@@ -20,6 +21,7 @@ from apps.payments.tasks import notify_new_bar_task, seed_tenant_catalog_task
 from apps.users.models import UserProfile
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 def issue_tokens_for_user(user):
@@ -215,10 +217,10 @@ class RegisterSerializer(serializers.Serializer):
         try:
             seed_tenant_catalog_task.delay(tenant.id)
         except Exception:
-            pass
+            logger.warning("No se pudo encolar la siembra del catálogo (tenant %s)", tenant.id, exc_info=True)
         try:
             notify_new_bar_task.delay(tenant.id)
         except Exception:
-            pass
+            logger.warning("No se pudo encolar el aviso de bar nuevo (tenant %s)", tenant.id, exc_info=True)
 
         return {"user": user, "tenant": tenant}
