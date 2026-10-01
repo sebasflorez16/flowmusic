@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Play, SkipForward } from 'lucide-react'
+import { ArrowDown, ArrowUp, Play, SkipForward, Trash2 } from 'lucide-react'
 
 import { CountdownTimer } from '@/components/common/CountdownTimer'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,8 @@ interface QueueListProps {
   items: QueueItem[]
   /** Callback para saltar un ítem. */
   onSkip: (id: number) => void
+  /** Callback para eliminar un ítem de la cola. */
+  onRemove: (id: number) => void
   /** Callback para reproducir un ítem. */
   onPlay: (id: number) => void
   /** Callback para mover un ítem arriba o abajo. */
@@ -32,7 +34,7 @@ const STATUS_VARIANT: Record<QueueItem['status'], 'default' | 'accent' | 'succes
  * Muestra posición, título/artista, mesa que lo pidió, estado y tiempo estimado
  * de espera. Permite reproducir o saltar un ítem directamente.
  */
-export function QueueList({ items, onSkip, onPlay, onMove }: QueueListProps) {
+export function QueueList({ items, onSkip, onRemove, onPlay, onMove }: QueueListProps) {
   if (items.length === 0) {
     return <p className="py-8 text-center text-sm text-muted-foreground">La cola está vacía</p>
   }
@@ -115,6 +117,17 @@ export function QueueList({ items, onSkip, onPlay, onMove }: QueueListProps) {
           >
             <SkipForward className="h-4 w-4" />
           </Button>
+          {item.status !== 'playing' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onRemove(item.id)}
+              aria-label="Eliminar de la cola"
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </li>
       ))}
     </ul>

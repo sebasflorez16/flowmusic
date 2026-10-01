@@ -258,6 +258,41 @@ class QueueSkipView(APIView):
         return Response(QueueItemSerializer(item).data)
 
 
+class QueueRemoveView(APIView):
+    """Elimina un ítem de la cola (quita la canción definitivamente).
+
+    Solo se pueden eliminar canciones en espera (``approved``). La canción que
+    está sonando se salta con ``skip``, no se elimina.
+    """
+
+    def delete(self, request, pk):
+        """Borra ``pk`` de la cola y reordena los activos restantes."""
+        try:
+            item = QueueItem.objects.get(pk=pk)
+        except QueueItem.DoesNotExist:
+            return Response({"detail": "Ítem no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        if item.status == QueueItem.Status.PLAYING:
+            return Response(
+                {"detail": "La canción en reproducción no se puede eliminar; usa saltar."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        item.delete()
+
+        # Recalcula posiciones y tiempos estimados de los activos restantes.
+        remaining = list(QueueItem.objects.filter(status__in=ACTIVE_STATUSES).order_by("position"))
+        for idx, q in enumerate(remaining, start=1):
+            q.position = idx
+            q.estimated_wait_seconds = compute_estimated_wait(remaining[: idx - 1])
+            q.save(update_fields=["position", "estimated_wait_seconds"])
+
+        slug = getattr(getattr(request, "tenant", None), "slug", None)
+        if slug:
+            emit_queue_updated(slug, _queue_snapshot())
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class QueueReorderView(APIView):
     """Mueve un ítem de la cola arriba o abajo (reordena manualmente).
 

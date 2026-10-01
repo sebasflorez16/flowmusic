@@ -25,6 +25,8 @@ interface QueueState {
   rejectRequest: (requestId: number) => Promise<void>
   /** Salta un ítem de la cola. */
   skipItem: (queueItemId: number) => Promise<void>
+  /** Elimina un ítem de la cola. */
+  removeItem: (queueItemId: number) => Promise<void>
   /** Reproduce un ítem de la cola (lo marca como "reproduciendo"). */
   playItem: (queueItemId: number) => Promise<void>
   /** Mueve un ítem de la cola arriba o abajo. */
@@ -67,6 +69,11 @@ export const useQueue = create<QueueState>((set, get) => ({
 
   skipItem: async (queueItemId) => {
     await api(`/music/queue/${queueItemId}/skip/`, { method: 'POST' })
+    await get().fetchQueue()
+  },
+
+  removeItem: async (queueItemId) => {
+    await api(`/music/queue/${queueItemId}/`, { method: 'DELETE' })
     await get().fetchQueue()
   },
 
