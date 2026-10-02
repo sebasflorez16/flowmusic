@@ -42,6 +42,7 @@ logs/
 # Local Netlify folder
 .netlify
 MusicFlow-Credenciales.pdf
+Comisiones-Mercaderistas.pdf
 
 # --- Kilo / Agent Manager (estado local, no versionar) ---
 .kilo/
