@@ -8,15 +8,11 @@ const fmt = (n: number) => '$' + n.toLocaleString('es-CO', { maximumFractionDigi
 /**
  * URL del portal de mercaderistas.
  *
- * Si el panel está en un subdominio `admin.<dominio>` usa `vendedores.<dominio>`;
- * en cualquier otro caso, la ruta `/vendedor` del mismo dominio.
+ * Usa la ruta `/vendedor` del mismo dominio del panel (no requiere configurar
+ * ningún subdominio ni DNS).
  */
 function vendorPortalUrl(): string {
-  const { protocol, host, origin } = window.location
-  if (host.startsWith('admin.')) {
-    return `${protocol}//vendedores.${host.slice('admin.'.length)}`
-  }
-  return `${origin}/vendedor`
+  return `${window.location.origin}/vendedor`
 }
 
 /** Primer día del mes actual en formato YYYY-MM-01. */
