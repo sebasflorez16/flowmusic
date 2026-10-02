@@ -5,6 +5,20 @@ import type { VendorSummary } from '@/types'
 
 const fmt = (n: number) => '$' + n.toLocaleString('es-CO', { maximumFractionDigits: 0 })
 
+/**
+ * URL del portal de mercaderistas.
+ *
+ * Si el panel está en un subdominio `admin.<dominio>` usa `vendedores.<dominio>`;
+ * en cualquier otro caso, la ruta `/vendedor` del mismo dominio.
+ */
+function vendorPortalUrl(): string {
+  const { protocol, host, origin } = window.location
+  if (host.startsWith('admin.')) {
+    return `${protocol}//vendedores.${host.slice('admin.'.length)}`
+  }
+  return `${origin}/vendedor`
+}
+
 /** Primer día del mes actual en formato YYYY-MM-01. */
 function currentMonthFirstDay(): string {
   const d = new Date()
@@ -136,7 +150,7 @@ export function VendorsManager() {
         </p>
         <input
           readOnly
-          value={`${window.location.origin}/vendedor`}
+          value={vendorPortalUrl()}
           onFocus={(e) => e.currentTarget.select()}
         />
       </div>
