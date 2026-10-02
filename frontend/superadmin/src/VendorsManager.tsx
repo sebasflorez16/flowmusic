@@ -128,6 +128,19 @@ export function VendorsManager() {
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
+      <div className="glass panel">
+        <h2>Acceso de mercaderistas</h2>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>
+          Comparte este enlace con tus vendedores. Entran con su cuenta y ven solo lo suyo
+          (sus bares y su comisión).
+        </p>
+        <input
+          readOnly
+          value={`${window.location.origin}/vendedor`}
+          onFocus={(e) => e.currentTarget.select()}
+        />
+      </div>
+
       <form className="glass panel" onSubmit={create}>
         <h2>Crear mercaderista</h2>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>

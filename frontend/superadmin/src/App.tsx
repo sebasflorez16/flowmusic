@@ -11,8 +11,22 @@ type Tab = 'resumen' | 'bares' | 'cobrar' | 'cobros' | 'gastos' | 'socios' | 've
 const fmt = (n: number) =>
   '$' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
+/**
+ * Detecta si se entró por el portal de mercaderistas.
+ *
+ * Funciona con un subdominio (`vendedores.tudominio`) o con la ruta `/vendedor`
+ * (ej. `https://panel.tudominio/vendedor`). En ese caso se muestra un acceso con
+ * la marca de mercaderistas y solo se aceptan cuentas de vendedor.
+ */
+function isVendorEntry(): boolean {
+  const host = window.location.hostname.toLowerCase()
+  const path = window.location.pathname.toLowerCase()
+  return host.startsWith('vendedores') || /(^|\/)vendedor(\/|$)/.test(path)
+}
+
 /** Página principal del superadmin. */
 export default function App() {
+  const vendorMode = isVendorEntry()
   const [token, setTok] = useState(getToken())
   const [role, setRoleState] = useState<Role | null>(getRole())
   const [email, setEmailState] = useState<string | null>(getEmail())
@@ -55,7 +69,7 @@ export default function App() {
   }
 
   if (!token) {
-    return <Login onLogin={onLogin} />
+    return <Login onLogin={onLogin} vendorMode={vendorMode} />
   }
 
   const handleLogout = () => {
@@ -296,7 +310,13 @@ function MaxTablesCell({ tenant, onDone }: { tenant: AdminTenant; onDone: () => 
   )
 }
 
-function Login({ onLogin }: { onLogin: (data: LoginResponse) => void }) {
+function Login({
+  onLogin,
+  vendorMode = false,
+}: {
+  onLogin: (data: LoginResponse) => void
+  vendorMode?: boolean
+}) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -311,8 +331,15 @@ function Login({ onLogin }: { onLogin: (data: LoginResponse) => void }) {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       })
-      if (data.role !== 'superadmin' && data.role !== 'socio' && data.role !== 'vendedor') {
-        setError('Esta cuenta no tiene acceso a este panel.')
+      const allowed = vendorMode
+        ? data.role === 'vendedor'
+        : data.role === 'superadmin' || data.role === 'socio' || data.role === 'vendedor'
+      if (!allowed) {
+        setError(
+          vendorMode
+            ? 'Esta cuenta no es de mercaderista.'
+            : 'Esta cuenta no tiene acceso a este panel.',
+        )
         return
       }
       onLogin(data)
@@ -329,9 +356,13 @@ function Login({ onLogin }: { onLogin: (data: LoginResponse) => void }) {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
           <img src="/logo-solo.png" alt="MusicFlow" style={{ height: 72 }} />
         </div>
-        <h1 style={{ fontSize: 20, marginBottom: 4, textAlign: 'center' }}>MusicFlow</h1>
+        <h1 style={{ fontSize: 20, marginBottom: 4, textAlign: 'center' }}>
+          {vendorMode ? 'MusicFlow · Mercaderistas' : 'MusicFlow'}
+        </h1>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
-          Acceso de administración y mercaderistas
+          {vendorMode
+            ? 'Acceso de vendedores · consulta tus bares y tu comisión'
+            : 'Acceso de administración y mercaderistas'}
         </p>
         <label>Email</label>
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required autoFocus />
