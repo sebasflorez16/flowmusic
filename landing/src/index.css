@@ -247,10 +247,13 @@ a {
 /* Layout / secciones                                                     */
 /* --------------------------------------------------------------------- */
 main {
-  padding-top: clamp(150px, 17vh, 200px);
+  padding-top: clamp(180px, 24vh, 280px);
 }
 section {
   padding: 96px 0;
+}
+section[id] {
+  scroll-margin-top: 120px;
 }
 .center {
   text-align: center;
@@ -299,12 +302,27 @@ h3 {
 /* --------------------------------------------------------------------- */
 /* Hero                                                                   */
 /* --------------------------------------------------------------------- */
+.hero-section {
+  position: relative;
+  padding: 40px 0 110px;
+}
+.hero-section::before {
+  content: '';
+  position: absolute;
+  inset: -140px 0 auto 0;
+  height: 130%;
+  background: url('/photos/bar.jpg') center 35% / cover no-repeat;
+  opacity: 0.13;
+  -webkit-mask-image: radial-gradient(50% 62% at 72% 38%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(50% 62% at 72% 38%, #000 0%, transparent 72%);
+  z-index: -1;
+  pointer-events: none;
+}
 .hero {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   gap: 64px;
   align-items: center;
-  padding-top: 40px;
 }
 .hero .lead {
   margin: 26px 0 34px;
@@ -448,15 +466,30 @@ h3 {
   font-size: 14.5px;
 }
 .icon-chip {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   margin-bottom: 18px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--hairline);
-  font-size: 20px;
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.16), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(139, 92, 246, 0.24);
+  color: #cbbcff;
+}
+.center-chip {
+  margin-left: auto;
+  margin-right: auto;
+}
+.muted-sm {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.link {
+  color: var(--teal);
+  margin-top: 8px;
+  font-weight: 600;
+  font-size: 13.5px;
 }
 .stat {
   font-size: 2.2rem;
@@ -562,53 +595,37 @@ h3 {
 }
 
 /* --------------------------------------------------------------------- */
-/* Galería                                                                */
+/* Bandas con imagen (fondo tipo Apple, con márgenes degradados)          */
 /* --------------------------------------------------------------------- */
-.gallery-section {
-  padding-top: 0;
-}
-.gallery {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-.photo {
-  padding: 6px;
-}
-.photo .core {
-  padding: 0;
-  background: #0b0b0f;
-  box-shadow: none;
-  border-radius: calc(var(--r) - 6px);
-  overflow: hidden;
+.band {
   position: relative;
-  aspect-ratio: 4 / 5;
+  min-height: 82vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 130px 24px;
+  background-size: cover;
+  background-position: center;
+  isolation: isolate;
 }
-.photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transform: scale(1.12);
-  transition: transform 1.6s var(--ease);
-  will-change: transform;
-}
-.photo.in img {
-  transform: scale(1);
-}
-.photo:hover img {
-  transform: scale(1.05);
-}
-.photo figcaption {
+.band::before {
+  content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 24px 22px;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.01em;
-  background: linear-gradient(0deg, rgba(5, 5, 6, 0.92), rgba(5, 5, 6, 0));
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    var(--bg) 0%,
+    rgba(5, 5, 6, 0.32) 32%,
+    rgba(5, 5, 6, 0.58) 62%,
+    var(--bg) 100%
+  );
+}
+.band-inner {
+  max-width: 800px;
+}
+.band .sub {
+  margin: 18px auto 0;
 }
 
 /* --------------------------------------------------------------------- */
@@ -678,11 +695,9 @@ footer {
   .contact {
     grid-template-columns: 1fr;
   }
-  .gallery {
-    grid-template-columns: 1fr;
-  }
-  .photo .core {
-    aspect-ratio: 16 / 10;
+  .band {
+    min-height: 68vh;
+    padding: 96px 24px;
   }
 }
 @media (max-width: 560px) {
