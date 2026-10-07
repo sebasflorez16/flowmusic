@@ -650,6 +650,27 @@ h3 {
 }
 
 /* --------------------------------------------------------------------- */
+/* Trabaja con nosotros                                                   */
+/* --------------------------------------------------------------------- */
+.join {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.24), rgba(236, 72, 153, 0.12));
+  border-color: rgba(139, 92, 246, 0.32);
+}
+.join .core {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+}
+.join-inner {
+  text-align: center;
+}
+.join .sub {
+  margin: 16px auto 0;
+}
+.join .actions {
+  justify-content: center;
+  margin-top: 28px;
+}
+
+/* --------------------------------------------------------------------- */
 /* Scroll reveal                                                          */
 /* --------------------------------------------------------------------- */
 [data-reveal] {

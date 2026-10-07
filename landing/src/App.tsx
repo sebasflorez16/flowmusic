@@ -9,6 +9,10 @@ const WA_LINK = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
   'Hola, quiero MusicFlow en mi bar',
 )}`
 
+const WA_JOIN = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
+  'Hola MusicFlow, me gustaría trabajar con ustedes como mercaderista',
+)}`
+
 /** Revela los elementos al entrar en pantalla (fade-up con blur). */
 function useReveal() {
   useEffect(() => {
@@ -525,13 +529,42 @@ export default function App() {
             </div>
           </div>
         </section>
+
+        {/* Trabaja con nosotros */}
+        <section id="trabaja">
+          <div className="wrap">
+            <div className="shell join" data-reveal>
+              <div className="core pad-lg join-inner">
+                <span className="eyebrow">
+                  <span className="dot" /> Trabaja con nosotros
+                </span>
+                <h2 style={{ marginTop: 18 }}>
+                  Gana comisión <span className="grad">trayendo bares</span>
+                </h2>
+                <p className="sub">
+                  Sé mercaderista de MusicFlow: consigues el bar, nosotros lo activamos y tú ganas una
+                  comisión por sus ventas, todos los meses.
+                </p>
+                <div className="actions">
+                  <a className="btn" href={WA_JOIN} target="_blank" rel="noreferrer">
+                    Quiero trabajar con ustedes
+                    <span className="ico">↗</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer>
         <div className="wrap footer-grid">
           <img src="/logo-letra.png" alt="MusicFlow" />
           <span>MusicFlow © {new Date().getFullYear()} · Música inteligente para bares</span>
-          <a href={DASHBOARD_URL}>Acceso dueños</a>
+          <div style={{ display: 'flex', gap: 18 }}>
+            <a href="#trabaja">Trabaja con nosotros</a>
+            <a href={DASHBOARD_URL}>Acceso dueños</a>
+          </div>
         </div>
       </footer>
     </>
