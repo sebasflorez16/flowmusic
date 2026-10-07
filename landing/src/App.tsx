@@ -146,7 +146,7 @@ const PLANS = [
   },
   {
     name: 'Plus',
-    price: '80.000',
+    price: '90.000',
     mesas: 12,
     featured: true,
     features: ['12 mesas con QR', 'Todo lo de Pro', 'Mensajes de marketing rotativos', 'Soporte prioritario'],
