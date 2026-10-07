@@ -247,7 +247,7 @@ a {
 /* Layout / secciones                                                     */
 /* --------------------------------------------------------------------- */
 main {
-  padding-top: 120px;
+  padding-top: clamp(150px, 17vh, 200px);
 }
 section {
   padding: 96px 0;
@@ -562,6 +562,56 @@ h3 {
 }
 
 /* --------------------------------------------------------------------- */
+/* Galería                                                                */
+/* --------------------------------------------------------------------- */
+.gallery-section {
+  padding-top: 0;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.photo {
+  padding: 6px;
+}
+.photo .core {
+  padding: 0;
+  background: #0b0b0f;
+  box-shadow: none;
+  border-radius: calc(var(--r) - 6px);
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 4 / 5;
+}
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.12);
+  transition: transform 1.6s var(--ease);
+  will-change: transform;
+}
+.photo.in img {
+  transform: scale(1);
+}
+.photo:hover img {
+  transform: scale(1.05);
+}
+.photo figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24px 22px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  background: linear-gradient(0deg, rgba(5, 5, 6, 0.92), rgba(5, 5, 6, 0));
+}
+
+/* --------------------------------------------------------------------- */
 /* Contacto                                                               */
 /* --------------------------------------------------------------------- */
 .contact {
@@ -627,6 +677,12 @@ footer {
   .plans,
   .contact {
     grid-template-columns: 1fr;
+  }
+  .gallery {
+    grid-template-columns: 1fr;
+  }
+  .photo .core {
+    aspect-ratio: 16 / 10;
   }
 }
 @media (max-width: 560px) {

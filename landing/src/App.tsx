@@ -66,13 +66,13 @@ const PLANS = [
   {
     name: 'Pro',
     price: '60.000',
-    mesas: 6,
+    mesas: 8,
     featured: false,
-    features: ['6 mesas con QR', 'AutoDJ que nunca se detiene', 'Pantalla TV con videos', 'Peticiones ilimitadas'],
+    features: ['8 mesas con QR', 'AutoDJ que nunca se detiene', 'Pantalla TV con videos', 'Peticiones ilimitadas'],
   },
   {
     name: 'Plus',
-    price: '90.000',
+    price: '80.000',
     mesas: 12,
     featured: true,
     features: ['12 mesas con QR', 'Todo lo de Pro', 'Mensajes de marketing rotativos', 'Soporte prioritario'],
@@ -111,7 +111,7 @@ export default function App() {
 
       <main id="top" className="wrap">
         {/* Hero */}
-        <section className="hero" style={{ paddingTop: 0 }}>
+        <section className="hero">
           <div>
             <span className="eyebrow" data-reveal>
               <span className="dot" /> Música inteligente para bares
@@ -183,6 +183,30 @@ export default function App() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Galería */}
+        <section className="gallery-section">
+          <div className="gallery">
+            <figure className="shell photo" data-reveal>
+              <div className="core">
+                <img src="/photos/bar.jpg" alt="El ambiente del bar" />
+                <figcaption>El ambiente</figcaption>
+              </div>
+            </figure>
+            <figure className="shell photo" data-reveal>
+              <div className="core">
+                <img src="/photos/crowd.jpg" alt="La gente disfrutando la música" />
+                <figcaption>La gente</figcaption>
+              </div>
+            </figure>
+            <figure className="shell photo" data-reveal>
+              <div className="core">
+                <img src="/photos/mixer.jpg" alt="La música" />
+                <figcaption>La música</figcaption>
+              </div>
+            </figure>
           </div>
         </section>
 
