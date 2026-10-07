@@ -306,23 +306,28 @@ h3 {
   position: relative;
   padding: 40px 0 110px;
 }
-.hero-section::before {
-  content: '';
-  position: absolute;
-  inset: -140px 0 auto 0;
-  height: 130%;
-  background: url('/photos/bar.jpg') center 35% / cover no-repeat;
-  opacity: 0.13;
-  -webkit-mask-image: radial-gradient(50% 62% at 72% 38%, #000 0%, transparent 72%);
-  mask-image: radial-gradient(50% 62% at 72% 38%, #000 0%, transparent 72%);
-  z-index: -1;
-  pointer-events: none;
-}
 .hero {
+  position: relative;
+  z-index: 0;
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   gap: 64px;
   align-items: center;
+}
+/* Copa a la derecha, con bordes difuminados que no tapan el texto */
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  right: -40px;
+  width: 58%;
+  height: 124%;
+  background: url('/photos/hero.jpg') center / cover no-repeat;
+  opacity: 0.6;
+  -webkit-mask-image: radial-gradient(74% 100% at 78% 50%, #000 32%, transparent 80%);
+  mask-image: radial-gradient(74% 100% at 78% 50%, #000 32%, transparent 80%);
+  z-index: -1;
+  pointer-events: none;
 }
 .hero .lead {
   margin: 26px 0 34px;
